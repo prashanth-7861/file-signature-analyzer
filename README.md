@@ -33,7 +33,8 @@ No external dependencies are required - the script uses only Python standard lib
 2. Place your `file_sigs.json` in the same directory as the script (or use the included one)
 3. Create a folder named `Files` in the same directory
 4. Place files to analyze in the `Files` folder
-5. Run the script:
+5. Run the script: python file-signature-analyzer.py
+6. A folder named 'Analyzed_then_saved' will be created in which the files will be saved
 
 ```bash
 python file-signature-analyzer.py
