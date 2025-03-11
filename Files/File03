@@ -1,0 +1,509 @@
+<!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.1//EN" 
+  "http://www.w3.org/TR/xhtml11/DTD/xhtml11.dtd">
+<html xmlns="http://www.w3.org/1999/xhtml" xml:lang="en" >
+<!--page-->
+  <head>
+<meta http-equiv="Content-Type" content="text/html; charset=utf-8" />
+    <title>Digital Forensics | Forensic Magazine</title>
+    <meta http-equiv="Content-Type" content="text/html; charset=utf-8" />
+<meta name="keywords" content="forensic, science, magazine, publication, journal, cleanroom, prevention, detection, critical, Vicon, Publishing, crime scene investigation, CSI, DNA, medical, examiner" />
+<meta name="description" content="Each issue of Forensic Magazine provides readers with relevant and timely information regarding all aspects of forensic technology, products, equipment and laboratory design. The bi-monthly publication serves as a resource for professionals responsible for forensic laboratories and crime scene investigation." />
+<meta name="abstract" content="Forensic Magazine®" />
+<meta name="revisit-after" content="1 day" />
+<link rel="meta" type="application/json" title="RDF" href="/rdf" />
+    <link type="text/css" rel="stylesheet" media="all" href="/sites/default/files/css/css_961f5da1b132e4e92a7f0b9feafafd1a.css" />
+<link type="text/css" rel="stylesheet" media="print" href="/sites/default/files/css/css_28ef645562dbc7730c69b8e52b83978f.css" />
+    <script type="text/javascript" src="/sites/default/files/js/js_e87d48a982c99ea7c25de498ec1080b5.js"></script>
+<script type="text/javascript">
+<!--//--><![CDATA[//><!--
+jQuery.extend(Drupal.settings, { "basePath": "/", "CTools": { "pageId": "page-8fda48d3beed40e66369876f7fecacdd" }, "googleanalytics": { "trackOutgoing": 1, "trackMailto": 1, "trackDownload": 1, "trackDownloadExtensions": "7z|aac|arc|arj|asf|asx|avi|bin|csv|doc|exe|flv|gif|gz|gzip|hqx|jar|jpe?g|js|mp(2|3|4|e?g)|mov(ie)?|msi|msp|pdf|phps|png|ppt|qtm?|ra(m|r)?|sea|sit|tar|tgz|torrent|txt|wav|wma|wmv|wpd|xls|xml|z|zip" }, "lightbox2": { "rtl": 0, "file_path": "/(\\w\\w/)sites/default/files", "default_image": "/modules/lightbox2/images/brokenimage.jpg", "border_size": 10, "font_color": "000", "box_color": "fff", "top_position": "", "overlay_opacity": "0.8", "overlay_color": "000", "disable_close_click": 1, "resize_sequence": 0, "resize_speed": 400, "fade_in_speed": 400, "slide_down_speed": 600, "use_alt_layout": 0, "disable_resize": 0, "disable_zoom": 0, "force_show_nav": 0, "show_caption": 0, "loop_items": 0, "node_link_text": "View Image Details", "node_link_target": 0, "image_count": "Image !current of !total", "video_count": "Video !current of !total", "page_count": "Page !current of !total", "lite_press_x_close": "press \x3ca href=\"#\" onclick=\"hideLightbox(); return FALSE;\"\x3e\x3ckbd\x3ex\x3c/kbd\x3e\x3c/a\x3e to close", "download_link_text": "", "enable_login": false, "enable_contact": false, "keys_close": "c x 27", "keys_previous": "p 37", "keys_next": "n 39", "keys_zoom": "z", "keys_play_pause": "32", "display_image_size": "", "image_node_sizes": "()", "trigger_lightbox_classes": "", "trigger_lightbox_group_classes": "", "trigger_slideshow_classes": "", "trigger_lightframe_classes": "", "trigger_lightframe_group_classes": "", "custom_class_handler": 0, "custom_trigger_classes": "", "disable_for_gallery_lists": 1, "disable_for_acidfree_gallery_lists": true, "enable_acidfree_videos": true, "slideshow_interval": 5000, "slideshow_automatic_start": true, "slideshow_automatic_exit": true, "show_play_pause": true, "pause_on_next_click": false, "pause_on_previous_click": true, "loop_slides": false, "iframe_width": 600, "iframe_height": 400, "iframe_border": 1, "enable_video": 1, "flvPlayer": "/modules/lightbox2/player.swf", "flvFlashvars": "autoplay=1\x26amp;playerMode=normal" } });
+//--><!]]>
+</script>
+    <!--[if IE 7]><link type="text/css" rel="stylesheet" media="all" href="/themes/forensic/ie.css" /><![endif]--> <!--If IE 7-->
+    <!--[if IE 6]><link type="text/css" rel="stylesheet" media="all" href="/themes/forensic/ie6.css" /><![endif]--> <!--If IE 6-->
+  </head>
+  <body class="sidebar-right">
+    <!-- Layout -->
+    <div class="container"> <!-- add "showgrid" class to display grid -->
+      <div id="header-banner"><div id="block-block_ad-ad_top_leaderboard" class="block block-block_ad">
+    <div class="ad-content text-center">
+      <script language="javascript">
+document.write('<scr'+'ipt language="javascript1.1" src="http://ad.doubleclick.net/adj/c.site179.tmus/fm_brand;tile=1;pos=1;dcove=r;sz=728x90;ord=' + ord + '?" ><\/script>');
+</script>
+<script>
+if ((!document.images && navigator.useragent.indexof("mozilla/2.") >= 0)  || navigator.useragent.indexof("webtv")>= 0) {
+document.write('<a href="http://ad.doubleclick.net/jump/c.site179.tmus/fm_brand;tile=1;pos=1;sz=728x90;ord=' + ord + '?" target="_blank">');
+document.write('<img src="http://ad.doubleclick.net/ad/c.site179.tmus/fm_brand;tile=1;pos=1;sz=728x90;ord=' + ord + '?" width="728" height="90" border="0" alt=""></a>');
+}
+</script>
+<noscript>
+<a href="http://ad.doubleclick.net/jump/c.site179.tmus/fm_brand;tile=1;pos=1;sz=728x90;ord=123456789?" target="_blank">
+<img src="http://ad.doubleclick.net/ad/c.site179.tmus/fm_brand;tile=1;pos=1;sz=728x90;ord=123456789?" width="728" height="90" border="0" alt=""></a>
+</noscript>    </div>
+</div>    
+</div>
+      <div id="header" class="clearfix"> 
+			<div class="logo"><a href="/"><img src="/themes/forensic/logo.png" alt="Forensic Magazine" id="logo" /></a> </div>         
+            <div class="global-navigation"><a href="/news">News</a>&nbsp;|&nbsp;<a href="/events">Events</a>&nbsp;|&nbsp;<a href="http://jobs.forensicmag.com/a/jbb/find-jobs">Jobs</a>&nbsp;|&nbsp;<a href="/current-issue/1113">Current Issue</a>&nbsp;|&nbsp;<a href="/webinars">Webinars</a>&nbsp;|&nbsp;<a href="/advertise">Advertise</a>&nbsp;|&nbsp;<a href="/subscribe">Subscribe</a>&nbsp;|&nbsp;<a href="/user">Log In</a></div>            <div class="search-bar"><form action="/search/google"  accept-charset="UTF-8" method="get" id="google-cse-searchbox-form">
+<div><input type="hidden" name="cx" id="edit-cx" value="003281625478137425115:box5y0asbpg"  />
+<input type="hidden" name="cof" id="edit-cof" value="FORID:11"  />
+<div class="form-item" id="edit-query-wrapper">
+ <input type="text" maxlength="128" name="query" id="edit-query" size="30" value="" title="Enter the terms you wish to search for." class="form-text" />
+</div>
+<input type="submit" name="op" id="edit-sa" value="Go"  class="form-submit" />
+<input type="hidden" name="safe" id="edit-safe" value="high"  />
+<input type="hidden" name="form_build_id" id="form-3a1ca82436810e4ab6f996ec674a8e34" value="form-3a1ca82436810e4ab6f996ec674a8e34"  />
+<input type="hidden" name="form_id" id="edit-google-cse-searchbox-form" value="google_cse_searchbox_form"  />
+
+</div></form>
+</div>
+        
+      </div> <!-- /#header -->
+    <div class="clear "></div>
+    
+      <div id="nav">
+        
+          <div id="main-menu"><div class="mainmenu"><ul class="main"><li class="home"><a href="/"><span>Home</span></a></li><li><a href="/buyers-guide"><span>Buyer's Guide</span></a></li><li><a href="/products"><span>Products</span></a></li><li><a href="/crime-scene"><span>Crime Scene</span></a></li><li><a href="/crime-lab"><span>Crime Lab</span></a></li><li><a href="/dna"><span>DNA</span></a></li><li><a href="/legal-process"><span>Legal Process</span></a></li><li><a href="/forensic-sciences"><span>Forensic Science</span></a></li><li><a href="/tips"><span>Tips</span></a></li><li><a href="/videos"><span>Videos</span></a></li><li><a href="/archives"><span>Archive</span></a></li></ul></div></div><div id="sub-menu"><div class="buyers-guide"><ul class="sub-menu"><li class="sub-menu-item">&nbsp;</li></ul></div><div class="products"><ul class="sub-menu"><li class="sub-menu-item">&nbsp;</li></ul></div><div class="crime-scene"><ul class="sub-menu"><li class="sub-menu-item"><a href="/crime-scene/crime-scene-equipment">Crime Scene Equipment</a></li>&nbsp; | &nbsp;<li class="sub-menu-item"><a href="/crime-scene/crime-scene-procedures">Crime Scene Procedures</a></li>&nbsp; | &nbsp;<li class="sub-menu-item"><a href="/crime-scene/evidence-collection">Evidence Collection</a></li>&nbsp; | &nbsp;<li class="sub-menu-item"><a href="/crime-scene/photography-video">Photography &amp; Video</a></li></ul></div><div class="crime-lab"><ul class="sub-menu"><li class="sub-menu-item"><a href="/crime-lab/automation">Automation</a></li>&nbsp; | &nbsp;<li class="sub-menu-item"><a href="/crime-lab/equipment-technology">Equipment &amp; Technology</a></li>&nbsp; | &nbsp;<li class="sub-menu-item"><a href="/crime-lab/facility-design">Facility Design</a></li>&nbsp; | &nbsp;<li class="sub-menu-item"><a href="/crime-lab/health-safety">Health &amp; Safety</a></li>&nbsp; | &nbsp;<li class="sub-menu-item"><a href="/crime-lab/toxicology">Toxicology</a></li></ul></div><div class="dna"><ul class="sub-menu"><li class="sub-menu-item"><a href="/dna/crime-lab-backlog">Crime Lab Backlog</a></li>&nbsp; | &nbsp;<li class="sub-menu-item"><a href="/dna/dna-analysis">DNA Analysis</a></li>&nbsp; | &nbsp;<li class="sub-menu-item"><a href="/dna/dna-sample-prep">DNA Sample Prep</a></li></ul></div><div class="legal-process"><ul class="sub-menu"><li class="sub-menu-item"><a href="/legal-process/chain-of-custody">Chain of Custody</a></li>&nbsp; | &nbsp;<li class="sub-menu-item"><a href="/legal-process/expert-witness">Expert Witness</a></li>&nbsp; | &nbsp;<li class="sub-menu-item"><a href="/legal-process/legislation-rulings">Legislation/Rulings</a></li></ul></div><div class="forensic-sciences"><ul class="sub-menu"><li class="sub-menu-item"><a href="/forensic-sciences/digital-forensics" class="active">Digital Forensics</a></li>&nbsp; | &nbsp;<li class="sub-menu-item"><a href="/forensic-sciences/entomology">Entomology</a></li>&nbsp; | &nbsp;<li class="sub-menu-item"><a href="/forensic-sciences/firearms">Firearms</a></li>&nbsp; | &nbsp;<li class="sub-menu-item"><a href="/forensic-sciences/forensic-anthropology">Forensic Anthropology</a></li>&nbsp; | &nbsp;<li class="sub-menu-item"><a href="/forensic-sciences/forensic-art">Forensic Art</a></li>&nbsp; | &nbsp;<li class="sub-menu-item"><a href="/forensic-sciences/impression-evidence">Impression Evidence</a></li>&nbsp; | &nbsp;<li class="sub-menu-item"><a href="/forensic-sciences/latent-prints">Latent Prints</a></li>&nbsp; | &nbsp;<li class="sub-menu-item"><a href="/forensic-sciences/pathology">Pathology</a></li></ul></div><div class="tips-sub"><ul class="sub-menu"><li class="sub-menu-item"><a href="/tips/crime-scene-tips">Crime Scene Tips</a></li>&nbsp; | &nbsp;<li class="sub-menu-item"><a href="/tips/safety-tips">Safety Tips</a></li>&nbsp; | &nbsp;<li class="sub-menu-item"><a href="/tips/management-tips">Management Tips</a></li></ul></div><div class="videos"><ul class="sub-menu"><li class="sub-menu-item">&nbsp;</li></ul></div><div class="archives"><ul class="sub-menu"><li class="sub-menu-item"><a href="/issues">Issues</a></li>&nbsp; | &nbsp;<li class="sub-menu-item"><a href="/webinars">Webinars</a></li></ul></div></div>        <div class="clear "></div>
+      </div> <!-- /#nav -->
+   <div id="main-wrapper">
+    <div class="inner">
+    <div class="top-space-front"><div class="big-headline"><h1>Digital Forensics</h1></div></div>
+     <div id="main">   
+        <div id="main-block-single">
+          <div class="main-block-single-top"></div>
+          <div class="main-block-single-content">
+                                          <!---->
+                                          <!-- 20100521 mgoodwin added message suppression if not logged in -->
+                                                  
+                  <div class="view view-article-by-term view-id-article_by_term view-display-id-default view-dom-id-1">
+    
+  
+  
+      <div class="view-content">
+        <div class="views-row views-row-1 views-row-odd views-row-first">
+    <p><a href="/article/windows-7-registry-forensics-part-5" class="title">Windows 7 Registry Forensics: Part 5</a><br />
+<span class="submitted">By <a href="/author/john-j-barbara">John J. Barbara</a></span><br />
+<!--paging_filter--><p>Artifacts are items of data or information left behind after a specific activity occurs on a system. Any USB device attached to a system will leave artifacts in several locations.</p><br />
+</p>
+<div class="clear"></div>
+  </div>
+  <div class="views-row views-row-2 views-row-even">
+    <p><a href="/article/windows-7-registry-forensics-part-4" class="title">Windows 7 Registry Forensics: Part 4</a><br />
+<span class="submitted">By <a href="/author/john-j-barbara">John J. Barbara</a></span><br />
+<!--paging_filter--><p>There are several techniques that can be used to examine the Registry, each of which has its own merits.</p><br />
+</p>
+<div class="clear"></div>
+  </div>
+  <div class="views-row views-row-3 views-row-odd">
+    <p><a href="/article/windows-7-registry-forensics-part-3" class="title">Windows 7 Registry Forensics: Part 3</a><br />
+<span class="submitted">By <a href="/author/john-j-barbara">John J. Barbara</a></span><br />
+<!--paging_filter--><p>A typical Windows 7 Registry consists of at least five Hives, each of which performs a different function. </p><br />
+</p>
+<div class="clear"></div>
+  </div>
+  <div class="views-row views-row-4 views-row-even">
+    <p><a href="/article/windows-7-registry-forensics-part-2" class="title">Windows 7 Registry Forensics: Part 2</a><br />
+<span class="submitted">By <a href="/author/john-j-barbara">John J. Barbara</a></span><br />
+<!--paging_filter--><p>Many forensic examiners are not familiar with the Registry or its forensic importance. One way to gain first-hand knowledge is to explore the Registry on a live, non-forensic computer. </p><br />
+</p>
+<div class="clear"></div>
+  </div>
+  <div class="views-row views-row-5 views-row-odd">
+    <p><a href="/article/csi-cell-phone" class="title">CSI Cell Phone</a><br />
+<span class="submitted">By <a href="/author/douglas-page">Douglas Page</a></span><br />
+<!--paging_filter--><p>Mobile device forensics forecast: continued oscillation, chance of cloud computing.</p><br />
+</p>
+<div class="clear"></div>
+  </div>
+  <div class="views-row views-row-6 views-row-even">
+    <p><a href="/article/digital-forensics-cyber-exchange-principle" class="title">The Digital Forensics Cyber Exchange Principle</a><br />
+<span class="submitted">By <a href="/author/ken-zatyko">Ken Zatyko</a>, <a href="/author/dr-john-bay">Dr. John Bay</a></span><br />
+<!--paging_filter--><p>Its application to cyber crime brings a new and exciting dimension to the famous Locard Exchange Principle.</p><br />
+</p>
+<div class="clear"></div>
+  </div>
+  <div class="views-row views-row-7 views-row-odd">
+    <p><a href="/article/windows-7-registry-forensics-part-1" class="title">Windows 7 Registry Forensics: Part 1</a><br />
+<span class="submitted">By <a href="/author/john-j-barbara">John J. Barbara</a></span><br />
+<!--paging_filter--><p>While the Windows Registry is forensically important, frequently it is not captured during the triage of a live system. Similarly, it is often overlooked during post-mortem examinations.</p><br />
+</p>
+<div class="clear"></div>
+  </div>
+  <div class="views-row views-row-8 views-row-even">
+    <p><a href="/article/book-review-software-ip-detective%E2%80%99s-handbook" class="title">Book Review: The Software IP Detective’s Handbook</a><br />
+<span class="submitted">By <a href="/author/john-j-barbara">John J. Barbara</a></span><br />
+<!--paging_filter--><p>The primary focus of this book is software Intellectual Property, its authorship and ownership, and the not so commonly known field of Software Forensics.</p><br />
+</p>
+<div class="clear"></div>
+  </div>
+  <div class="views-row views-row-9 views-row-odd">
+    <p><a href="/article/sim-forensics-part-3" class="title">SIM Forensics: Part 3</a><br />
+<span class="submitted">By <a href="/author/john-j-barbara">John J. Barbara</a></span><br />
+<!--paging_filter--><p>Analyzing a SIM card can provide the geographical location(s) where the SIM card, the phone, and the owner of the phone (suspect) may have been.</p><br />
+</p>
+<div class="clear"></div>
+  </div>
+  <div class="views-row views-row-10 views-row-even">
+    <p><a href="/article/sim-forensics-part-2" class="title">Sim Forensics: Part 2</a><br />
+<span class="submitted">By <a href="/author/john-j-barbara">John J. Barbara</a></span><br />
+<!--paging_filter--><p>Although a thorough discussion of all the potential evidence that could be on a SIM card is beyond the scope of this column, some of that information will be discussed in this and a future column.</p><br />
+</p>
+<div class="clear"></div>
+  </div>
+  <div class="views-row views-row-11 views-row-odd">
+    <p><a href="/article/sim-forensics-part-1" class="title">SIM Forensics: Part 1</a><br />
+<span class="submitted">By <a href="/author/john-j-barbara">John J. Barbara</a></span><br />
+<!--paging_filter--><p>SIMs are found in GSM, iDEN, and Blackberry handsets. Under the GSM framework, a cell phone is termed a Mobile Station, consisting of a SIM card and a handset. From an investigative perspective, one useful feature of a SIM card is that it can be moved from one GSM compatible phone to another.</p><br />
+</p>
+<div class="clear"></div>
+  </div>
+  <div class="views-row views-row-12 views-row-even">
+    <p><a href="/article/enhancing-investigations-gps-evidence" class="title">Enhancing Investigations with GPS Evidence</a><br />
+<span class="submitted">By <a href="/author/ben-lemere">Ben LeMere</a></span><br />
+<!--paging_filter--><p>The value of collecting evidence from GPS devices has been well established over the last several years. Most investigators think in terms of being able to obtain GPS evidence in the form of the “breadcrumb trail” known as trackpoints, but much more data is available from these devices.</p><br />
+</p>
+<div class="clear"></div>
+  </div>
+  <div class="views-row views-row-13 views-row-odd">
+    <p><a href="/article/understanding-world-cellular-telephones-part-3" class="title">Understanding The World of Cellular Telephones: Part 3 </a><br />
+<span class="submitted">By <a href="/author/john-j-barbara">John J. Barbara</a></span><br />
+<!--paging_filter--><p>Cell phones can and do store data or information that the user may not be aware of. It should come as no surprise that this can provide a tremendous amount of potential probative information (evidence) to investigators. </p><br />
+</p>
+<div class="clear"></div>
+  </div>
+  <div class="views-row views-row-14 views-row-even">
+    <p><a href="/article/understanding-world-cellular-telephones-part-2" class="title">Understanding the World of Cellular Telephones: Part 2</a><br />
+<span class="submitted">By <a href="/author/john-j-barbara">John J. Barbara</a></span><br />
+<!--paging_filter--><p>Familiarity with the five main cell phone operating systems can aid your investigation.</p><br />
+</p>
+<div class="clear"></div>
+  </div>
+  <div class="views-row views-row-15 views-row-odd">
+    <p><a href="/article/digital-forensics-architectural-and-engineering-facility-design-requirements" class="title">Digital Forensics: Architectural and Engineering Facility Design Requirements</a><br />
+<span class="submitted">By <a href="/author/michael-mount">Michael Mount</a>, <a href="/author/adam-denmark">Adam Denmark</a></span><br />
+<!--paging_filter--><p>A fully equipped digital forensics laboratory contains numerous specialty spaces, each with its own unique and specific architectural/engineering design issues that must be addressed.</p><br />
+</p>
+<div class="clear"></div>
+  </div>
+  <div class="views-row views-row-16 views-row-even">
+    <p><a href="/article/solving-cases-technology-voice-stress-analysis" class="title">Solving Cases with Technology: Voice Stress Analysis</a><br />
+<span class="submitted">By <a href="/author/brad-schlerf">Brad Schlerf</a></span><br />
+<!--paging_filter--><p>The purpose of this article is to educate you about Voice Stress Analysis, a forensic tool that can be used to determine whether someone is telling the truth or being deceptive.</p><br />
+</p>
+<div class="clear"></div>
+  </div>
+  <div class="views-row views-row-17 views-row-odd">
+    <p><a href="/article/understanding-world-cellular-telephones-part-1" class="title">Understanding the World of Cellular Telephones: Part 1</a><br />
+<span class="submitted">By <a href="/author/john-j-barbara">John J. Barbara</a></span><br />
+<!--paging_filter--><p>Telephone technology has evolved by leaps and bounds. It is important to understand some of the key terminology used when discussing cellular phones and other mobile devices.</p><br />
+</p>
+<div class="clear"></div>
+  </div>
+  <div class="views-row views-row-18 views-row-even">
+    <p><a href="/article/parameters-selecting-triage-tool" class="title">Parameters For Selecting A Triage Tool</a><br />
+<span class="submitted">By <a href="/author/john-j-barbara">John J. Barbara</a></span><br />
+<!--paging_filter--><p>Triage tools vary greatly in their technical and operational performance capabilities.</p><br />
+</p>
+<div class="clear"></div>
+  </div>
+  <div class="views-row views-row-19 views-row-odd">
+    <p><a href="/article/speeding-digital-forensics-process-bringing-high-performance-computing-power-field" class="title">Speeding The Digital Forensics Process: Bringing High Performance Computing Power into the Field</a><br />
+<span class="submitted">By <a href="/author/bob-carlson">Bob Carlson</a></span><br />
+<!--paging_filter--><p>A new generation of server-based solutions allows investigators to bring massive, data center computing capability into the field.</p><br />
+</p>
+<div class="clear"></div>
+  </div>
+  <div class="views-row views-row-20 views-row-even">
+    <p><a href="/article/triage-computer" class="title">Triage A Computer</a><br />
+<span class="submitted">By <a href="/author/john-j-barbara">John J. Barbara</a></span><br />
+<!--paging_filter--><p>Triaging a computer allows investigators to gather volatile data that would be lost by pulling the plug on a live system.</p><br />
+</p>
+<div class="clear"></div>
+  </div>
+  <div class="views-row views-row-21 views-row-odd">
+    <p><a href="/article/you-pull-plug" class="title">Before You Pull the Plug </a><br />
+<span class="submitted">By <a href="/author/john-j-barbara">John J. Barbara</a></span><br />
+<!--paging_filter--><p>Collecting a computer into evidence requires careful consideration.</p><br />
+</p>
+<div class="clear"></div>
+  </div>
+  <div class="views-row views-row-22 views-row-even">
+    <p><a href="/article/digital-forensic-sub-disciplines-part-2" class="title">The Digital Forensic Sub-Disciplines: Part 2</a><br />
+<span class="submitted">By <a href="/author/john-j-barbara">John J. Barbara</a></span><br />
+<!--paging_filter--><p>The confusion concerning the Digital and Multimedia Evidence Sub-Disciplines suggests the Discipline should be revised.</p><br />
+</p>
+<div class="clear"></div>
+  </div>
+  <div class="views-row views-row-23 views-row-odd">
+    <p><a href="/article/editor-swgde-weighs-research-council-reports" class="title">From The Editor: SWGDE Weighs in on Research Council Reports</a><br />
+<span class="submitted">By <a href="/author/patrice-galvin">Patrice Galvin</a></span><br />
+<!--paging_filter--><p>Recently, the Scientific Working Group on Digital Evidence (SWGDE) posted a position paper on the National Research Council report that states the “report is a call to action for SWGDE to strengthen the digital evidence discipline.” </p><br />
+</p>
+<div class="clear"></div>
+  </div>
+  <div class="views-row views-row-24 views-row-even">
+    <p><a href="/article/catch-child-predator" class="title">To Catch A Child Predator</a><br />
+<span class="submitted">By <a href="/author/douglas-page">Douglas Page</a></span><br />
+<!--paging_filter--><p>New techniques are emerging to help forensic analysts build cases against Internet child pornographers.</p><br />
+</p>
+<div class="clear"></div>
+  </div>
+  <div class="views-row views-row-25 views-row-odd views-row-last">
+    <p><a href="/article/digital-forensic-sub-disciplines-part-1" class="title">The Digital Forensic Sub-Disciplines: Part 1</a><br />
+<span class="submitted">By <a href="/author/john-j-barbara">John J. Barbara</a></span><br />
+<!--paging_filter--><p>Can we clearly differentiate whether an examination falls under Computer Forensics, Forensic Audio, Image Analysis, or Video Analysis?</p><br />
+</p>
+<div class="clear"></div>
+  </div>
+    </div>
+  
+      <div class="item-list"><ul class="pager"><li class="pager-current first">1</li>
+<li class="pager-item"><a href="/forensic-sciences/digital-forensics?page=1" title="Go to page 2" class="active">2</a></li>
+<li class="pager-item"><a href="/forensic-sciences/digital-forensics?page=2" title="Go to page 3" class="active">3</a></li>
+<li class="pager-next"><a href="/forensic-sciences/digital-forensics?page=1" title="Go to next page" class="active">next ›</a></li>
+<li class="pager-last last"><a href="/forensic-sciences/digital-forensics?page=2" title="Go to last page" class="active">last »</a></li>
+</ul></div>  
+  
+  
+  
+  
+</div>           
+          </div>
+          <div class="main-block-single-bottom"></div>
+        </div>
+        <div class="clear"></div>
+      </div> <!-- /#main -->
+
+              <div id="sidebar-right" class="sidebar">
+          
+<div id="block-block_ad-product_focus" class="block block-block_ad">
+  
+          <div class="title1"><div>Product Focus</div></div>
+    
+    <div class="content">
+            <script language="javascript">
+document.write('<scr'+'ipt language="javascript1.1" src="http://ad.doubleclick.net/adj/c.site179.tmus/fm_brand;tile=4;pos=1;dcove=r;sz=250x350;ord=' + ord + '?" ><\/script>');
+</script>
+<script>
+if ((!document.images && navigator.useragent.indexof("mozilla/2.") >= 0)  || navigator.useragent.indexof("webtv")>= 0) {
+document.write('<a href="http://ad.doubleclick.net/jump/c.site179.tmus/fm_brand;tile=4;pos=1;sz=250x350;ord=' + ord + '?" target="_blank">');
+document.write('<img src="http://ad.doubleclick.net/ad/c.site179.tmus/fm_brand;tile=4;pos=1;sz=250x350;ord=' + ord + '?" width="250" height="350" border="0" alt=""></a>');
+}
+</script>
+<noscript>
+<a href="http://ad.doubleclick.net/jump/c.site179.tmus/fm_brand;tile=4;pos=1;sz=250x350;ord=123456789?" target="_blank">
+<img src="http://ad.doubleclick.net/ad/c.site179.tmus/fm_brand;tile=4;pos=1;sz=250x350;ord=123456789?" width="250" height="350" border="0" alt=""></a>
+</noscript>    </div>
+   <div class="block-bottom"></div>
+</div>
+<div id="block-block_front-most_popular" class="block block-block_front">
+      <div class="mp-title"><div>
+        <table cellspacing="0" cellpadding="0"><tr>
+          <td class="tab-1-active"><div><a>Most Read</a></div></td>
+          <td class="tab-2"><div><a>Most Recent</a></div></td>
+          <td class="tab-3"><div><a>Most Emailed</a></div></td>
+        </tr></table>
+       </div></div>
+    <div class="content">
+      <div class="most-popular-wrapper">
+
+  <div class="most-read">
+  <div class="view view-most-read-radioactive view-id-most_read_radioactive view-display-id-default view-dom-id-1">
+    
+  
+  
+      <div class="view-content">
+        <div class="views-row views-row-1 views-row-odd views-row-first">
+      
+  <div class="views-field-title">
+                <span class="field-content"><a href="/news/crime-lab-closure-create-case-delays">Crime Lab Closure to Create Case Delays <span class="content-type"> | News</span></a></span>
+  </div>
+  </div>
+  <div class="views-row views-row-2 views-row-even">
+      
+  <div class="views-field-title">
+                <span class="field-content"><a href="/news/crime-lab-sees-new-synthetic-drugs">Crime Lab Sees New Synthetic Drugs<span class="content-type"> | News</span></a></span>
+  </div>
+  </div>
+  <div class="views-row views-row-3 views-row-odd views-row-last">
+      
+  <div class="views-field-title">
+                <span class="field-content"><a href="/news/hunt-las-teardrop-rapist-may-hinge-familial-dna-testing">Hunt for L.A.’s ‘Teardrop Rapist’ May Hinge on Familial DNA Testing<span class="content-type"> | News</span></a></span>
+  </div>
+  </div>
+    </div>
+  
+  
+  
+  
+  
+  
+</div>   </div>
+  <div class="most-recent">
+  <div class="view view-most-recent view-id-most_recent view-display-id-default view-dom-id-2">
+    
+  
+  
+      <div class="view-content">
+        <div class="views-row views-row-1 views-row-odd views-row-first">
+    <a href="/news/fort-worth-polices-crime-lab-resume-dna-testing">Fort Worth Police&#039;s Crime Lab to Resume DNA Testing</a><span class="content-type"> | News</span>  </div>
+  <div class="views-row views-row-2 views-row-even">
+    <a href="/news/state-get-skinner-evidence-dna-testing">State to Get Skinner Evidence for DNA Testing</a><span class="content-type"> | News</span>  </div>
+  <div class="views-row views-row-3 views-row-odd views-row-last">
+    <a href="/news/dedham-starts-citizens-police-academy">Dedham Starts Citizens Police Academy</a><span class="content-type"> | News</span>  </div>
+    </div>
+  
+  
+  
+  
+  
+  
+</div>   </div>
+
+  <div class="most-emailed">
+  <a href="/news/method-analyzes-gunshot-residue-pinpoints-weapon-caliber">Method Analyzes Gunshot Residue, Pinpoints Weapon Caliber </a> | <span class="content-type">news</span><br /><a href="/news/supreme-court-rejects-dna-lab-test-analyst-confrontation">Supreme Court Rejects DNA Lab Test Analyst Confrontation</a> | <span class="content-type">news</span><br /><a href="/news/forensic-science-breakthrough-will-aid-rape-cases">Forensic Science Breakthrough Will Aid Rape Cases</a> | <span class="content-type">news</span><br />  </div>
+
+</div>    </div>
+   <div class="block-bottom"></div>
+</div><div id="block-block_ad-ad_rightsidebar_square" class="block block-block_ad">
+    <div class="ad-content text-center">
+      <script language="javascript">
+document.write('<scr'+'ipt language="javascript1.1" src="http://ad.doubleclick.net/adj/c.site179.tmus/fm_brand;tile=3;pos=1;dcove=r;sz=300x250;ord=' + ord + '?" ><\/script>');
+</script>
+<script>
+if ((!document.images && navigator.useragent.indexof("mozilla/2.") >= 0)  || navigator.useragent.indexof("webtv")>= 0) {
+document.write('<a href="http://ad.doubleclick.net/jump/c.site179.tmus/fm_brand;tile=3;pos=1;sz=300x250;ord=' + ord + '?" target="_blank">');
+document.write('<img src="http://ad.doubleclick.net/ad/c.site179.tmus/fm_brand;tile=3;pos=1;sz=300x250;ord=' + ord + '?" width="300" height="250" border="0" alt=""></a>');
+}
+</script>
+<noscript>
+<a href="http://ad.doubleclick.net/jump/c.site179.tmus/fm_brand;tile=3;pos=1;sz=300x250;ord=123456789?" target="_blank">
+<img src="http://ad.doubleclick.net/ad/c.site179.tmus/fm_brand;tile=3;pos=1;sz=300x250;ord=123456789?" width="300" height="250" border="0" alt=""></a>
+</noscript>    </div>
+</div>    
+<div id="block-block-1" class="block block-block">
+    <div class="ad-content text-center">
+      <!--paging_filter-->    </div>
+</div>
+<!--
+<div id="block-" class="block block-">
+
+      <div class="tk-title"><div>&nbsp;</div></div>
+
+    <div class="content">
+                </div>
+   <div class="block-bottom"></div>
+</div>
+--><div id="block-block_front-current_issue" class="block block-block_front">
+
+      <div class="ci-title"><div>Current Issue</div></div>
+
+
+    <div class="ci-content">
+            <table cellspacing="0" cellpadding="0" width="100%" border="0" bgcolor="#acbcc2"><tr><td width="40%" align="center" style="padding:5px 0px 5px 0px;"><img height="100px" src="/sites/default/files/0612_for_cover.jpg" border="0"/></td><td valign="top" style="line-height:18px;"><br><a href="/current-issue/1113"><span class="ci-site">Forensic Magazine&reg;</span> <br />June/July 2012<br /></a><br /><span class="ci-de-front"><a href="http://e-ditionsbyfry.com/Olive/ODE/FNS/Default.aspx?href=FNS/2012/06/01">Digital Edition</a></span><br>&nbsp;</td></tr></table>    </div>
+   <div class="block-bottom"></div>
+</div>
+<!--
+  <div class="tr"><div class="tl"><div class="r"><div class="b"><div class="l"><div class="bl"><div class="br"><div class="t">
+  </div></div></div></div></div></div></div></div>
+  -->        </div> <!-- /#sidebar-right -->
+            
+      </div> <!-- /.inner -->
+      </div> <!-- /#main-wrapper -->
+      
+      <div class="space clear"></div>
+      <div id="footer" class="clear">
+        <div id="block-block_ad-ad_bottom_leaderboard" class="block block-block_ad">
+    <div class="ad-content text-center">
+      <script language="javascript">
+document.write('<scr'+'ipt language="javascript1.1" src="http://ad.doubleclick.net/adj/c.site179.tmus/fm_brand;tile=2;pos=2;dcove=r;sz=728x90;ord=' + ord + '?" ><\/script>');
+</script>
+<script>
+if ((!document.images && navigator.useragent.indexof("mozilla/2.") >= 0)  || navigator.useragent.indexof("webtv")>= 0) {
+document.write('<a href="http://ad.doubleclick.net/jump/c.site179.tmus/fm_brand;tile=2;pos=2;sz=728x90;ord=' + ord + '?" target="_blank">');
+document.write('<img src="http://ad.doubleclick.net/ad/c.site179.tmus/fm_brand;tile=2;pos=2;sz=728x90;ord=' + ord + '?" width="728" height="90" border="0" alt=""></a>');
+}
+</script>
+<noscript>
+<a href="http://ad.doubleclick.net/jump/c.site179.tmus/fm_brand;tile=2;pos=2;sz=728x90;ord=123456789?" target="_blank">
+<img src="http://ad.doubleclick.net/ad/c.site179.tmus/fm_brand;tile=2;pos=2;sz=728x90;ord=123456789?" width="728" height="90" border="0" alt=""></a>
+</noscript>    </div>
+</div>    
+<div id="block-block_siteindex-site_index_category" class="block block-block_siteindex">
+  
+    
+    <div class="content">
+            <table cellspacing="5" cellpadding="0" width="100%" border= "0">
+<tr>
+  <td valign="top">
+    <ul id = "si_category_1" class="firetree">
+      <li><span class="folder"><strong><a href="/crime-scene">Crime Scene</a></strong></span>
+          <ul>
+            <li><span class="file"><a href="/crime-scene/evidence-collection">Evidence Collection</a></span></li><li><span class="file"><a href="/crime-scene/crime-scene-procedures">Crime Scene Procedures</a></span></li><li><span class="file"><a href="/crime-scene/photography-video">Photography &amp; Video</a></span></li><li><span class="file"><a href="/crime-scene/crime-scene-equipment">Crime Scene Equipment</a></span></li>          </ul>
+      </li>
+    </ul>
+    <ul id = "si_category_5" class="firetree">
+      <li><span class="folder"><strong><a href="/crime-lab">Crime Lab</a></strong></span>
+          <ul>
+            <li><span class="file"><a href="/crime-lab/toxicology">Toxicology</a></span></li><li><span class="file"><a href="/crime-lab/equipment-technology">Equipment &amp; Technology</a></span></li><li><span class="file"><a href="/crime-lab/automation">Automation</a></span></li><li><span class="file"><a href="/crime-lab/facility-design">Facility Design</a></span></li><li><span class="file"><a href="/crime-lab/health-safety">Health &amp; Safety</a></span></li>          </ul>            
+      </li>
+    </ul>    
+  </td>
+  <td valign="top">
+    <ul id = "si_category_2" class="firetree">
+      <li><span class="folder"><strong><a href="/dna">DNA</a></strong></span>
+          <ul>
+            <li><span class="file"><a href="/dna/dna-sample-prep">DNA Sample Prep</a></span></li><li><span class="file"><a href="/dna/dna-analysis">DNA Analysis</a></span></li><li><span class="file"><a href="/dna/crime-lab-backlog">Crime Lab Backlog</a></span></li>          </ul>      
+      </li>
+    </ul>
+	<ul id = "si_category_3" class="firetree">
+      <li><span class="folder"><strong><a href="/legal-process">Legal Process</a></strong></span>
+          <ul>
+            <li><span class="file"><a href="/legal-process/chain-of-custody">Chain of Custody</a></span></li><li><span class="file"><a href="/legal-process/expert-witness">Expert Witness</a></span></li><li><span class="file"><a href="/legal-process/legislation-rulings">Legislation/Rulings</a></span></li>          </ul>            
+      </li>
+    </ul>
+  </td>
+  <td valign="top">
+    <ul id = "si_category_4" class="firetree">
+      <li><span class="folder"><strong><a href="/forensic-sciences">Forensic Sciences</a></strong></span>
+          <ul>
+            <li><span class="file"><a href="/forensic-sciences/digital-forensics" class="active">Digital Forensics</a></span></li><li><span class="file"><a href="/forensic-sciences/latent-prints">Latent Prints</a></span></li><li><span class="file"><a href="/forensic-sciences/firearms">Firearms</a></span></li><li><span class="file"><a href="/forensic-sciences/forensic-art">Forensic Art</a></span></li><li><span class="file"><a href="/forensic-sciences/forensic-anthropology">Forensic Anthropology</a></span></li><li><span class="file"><a href="/forensic-sciences/entomology">Entomology</a></span></li><li><span class="file"><a href="/forensic-sciences/pathology">Pathology</a></span></li><li><span class="file"><a href="/forensic-sciences/impression-evidence">Impression Evidence</a></span></li>          </ul>            
+      </li>
+    </ul>
+  </td>      
+ 
+</tr>
+</table>
+    </div>
+   <div class="block-bottom"></div>
+</div>
+        <div class="footer-navigation"><a href="/">Home</a>&nbsp; <span style="color: #666666">|</span> &nbsp;<a href="/contact">Contact Us</a>&nbsp; <span style="color: #666666">|</span> &nbsp;<a href="/about-us">About Us</a>&nbsp; <span style="color: #666666">|</span> &nbsp;<a href="/privacy-policy">Privacy Policy</a>&nbsp; <span style="color: #666666">|</span> &nbsp;<a href="/subscribe">Subscribe</a>&nbsp; <span style="color: #666666">|</span> &nbsp;<a href="/advertise">Advertise</a>&nbsp; <span style="color: #666666">|</span> &nbsp;<a href="/rss">RSS</a>&nbsp; <span style="color: #666666">|</span> &nbsp;<a href="/sitemap">Sitemap</a>&nbsp; <span style="color: #666666">|</span> &nbsp;<a href="/terms-use">Terms of Use</a></div>      </div> <!-- /#footer -->
+      
+    </div> <!-- /.container -->
+    <!-- /layout -->
+
+  <!-- SiteCatalyst code version: H.21.1 Copyright 1997-2009 Omniture, Inc. More info available at http://www.omniture.com -->
+<script type="text/javascript" language="JavaScript" src="http://www.forensicmag.com/sites/all/libraries/omniture/s_code.js"></script>
+<script type="text/javascript" language="JavaScript"><!--
+/************* DO NOT ALTER ANYTHING BELOW THIS LINE ! **************/
+var s_code=s.t();if(s_code)document.write(s_code)//--></script>
+<script language="JavaScript" type="text/javascript"><!--
+if(navigator.appVersion.indexOf('MSIE')>=0)document.write(unescape('%3C')+'\!-'+'-')
+//--></script><noscript><a href="http://www.omniture.com" title="Web Analytics"><img src="http://examplecom.112.2o7.net/b/ss/examplecom/1/H.20.3--NS/0/4385281"
+height="1" width="1" border="0" alt="" /></a></noscript><!--/DO NOT REMOVE/-->
+<!-- End SiteCatalyst code version: H.21.1 -->
+<script type="text/javascript" src="/sites/default/files/js/js_b7178a3a55dc8271f8663a64faf93638.js"></script>
+<script type="text/javascript">
+<!--//--><![CDATA[//><!--
+jQuery.extend(Drupal.settings, { "googleCSE": { "language": "en" } });
+//--><!]]>
+</script>
+<script type="text/javascript">
+<!--//--><![CDATA[//><!--
+var _gaq = _gaq || [];_gaq.push(["_setAccount", "UA-1283123-2"]);_gaq.push(["_trackPageview"]);_gaq.push(['_trackPageLoadTime']);(function() {var ga = document.createElement("script");ga.type = "text/javascript";ga.async = true;ga.src = ("https:" == document.location.protocol ? "https://ssl" : "http://www") + ".google-analytics.com/ga.js";var s = document.getElementsByTagName("script")[0];s.parentNode.insertBefore(ga, s);})();
+//--><!]]>
+</script>
+
+
+  </body>
+</html>
