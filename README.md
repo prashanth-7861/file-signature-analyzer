@@ -10,6 +10,19 @@ A Python tool for identifying file types based on their binary signatures, regar
 - Creates multiple copies for ambiguous file types
 - Generates detailed analysis report
 
+**Keywords**: file-analysis, file-signatures, binary-analysis, file-identification, digital-forensics, magic-bytes, file-type-detection, file-extensions
+
+## Technologies Used
+
+This tool is built using Python with a focus on standard library modules to ensure maximum compatibility without external dependencies:
+
+- **os**: For file and directory operations
+- **json**: For parsing the signature database and generating reports
+- **shutil**: For file copying operations
+- **binascii**: For binary to hexadecimal conversion
+
+No external dependencies are required - the script uses only Python standard library modules.
+
 ## Requirements
 
 - Python 3.6 or higher
