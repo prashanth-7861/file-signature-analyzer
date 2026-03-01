@@ -2,42 +2,59 @@
 # -*- coding: utf-8 -*-
 
 """
-File Signature Analyzer
+File Signature Analyzer v2.0.0
 A tool to identify file types based on binary signatures regardless of file extension.
+Now with ML-based classification, file comparison, and enhanced analysis.
 """
-
-
 
 import sys
 import os
 import json
 import shutil
-import binascii
-import zipfile  # Standard library
-import tarfile  # Standard library
-import rarfile  # External package
-import py7zr    # External package
+import hashlib
+import zipfile
+import tarfile
 from datetime import datetime
+
+# Optional external packages
+try:
+    import rarfile
+except ImportError:
+    rarfile = None
+
+try:
+    import py7zr
+except ImportError:
+    py7zr = None
+
+# Optional matplotlib for charts
+try:
+    from matplotlib.backends.backend_qt5agg import FigureCanvasQTAgg as FigureCanvas
+    from matplotlib.figure import Figure
+    HAS_MATPLOTLIB = True
+except ImportError:
+    HAS_MATPLOTLIB = False
+
 from PyQt5.QtWidgets import (
-    QApplication, QMainWindow, QWidget, QVBoxLayout, QHBoxLayout, QLabel, 
-    QLineEdit, QPushButton, QFileDialog, QMessageBox, QTableWidget, 
+    QApplication, QMainWindow, QWidget, QVBoxLayout, QHBoxLayout, QLabel,
+    QLineEdit, QPushButton, QFileDialog, QMessageBox, QTableWidget,
     QTableWidgetItem, QGroupBox, QTabWidget, QSplitter, QFrame, QAction,
     QMenu, QProgressBar, QComboBox, QCheckBox, QTextEdit, QInputDialog,
     QDialog, QDialogButtonBox, QHeaderView, QTreeWidgetItem, QSpinBox,
-    QTreeWidget, 
+    QTreeWidget,
 )
 from PyQt5.QtCore import Qt, QThread, pyqtSignal, QUrl
 from PyQt5.QtGui import QIcon, QDesktopServices, QFont
 
-# Add the resource_path function here
+
 def resource_path(relative_path):
     """Get absolute path to resource, works for dev and PyInstaller"""
     try:
-        # PyInstaller creates a temp folder and stores path in _MEIPASS
         base_path = sys._MEIPASS
     except Exception:
         base_path = os.path.abspath(".")
     return os.path.join(base_path, relative_path)
+
 
 # Create necessary directories if they don't exist
 os.makedirs(resource_path("ui"), exist_ok=True)
@@ -51,50 +68,64 @@ from ui.contact_dialog import ContactDialog
 from ui.signature_editor import SignatureEditorDialog
 from ui.metadata_viewer import MetadataViewer
 from ui.convert_dialog import ConvertFileDialog
-from core.file_analyzer import identify_file_type
+from core.file_analyzer import identify_file_type, calculate_entropy
 from core.batch_processor import BatchFileProcessor
 from core.metadata_extractor import MetadataExtractor
+from core.ml_classifier import MLFileClassifier
 
 # Application version
-APP_VERSION = "1.0.0"
+APP_VERSION = "2.0.0"
 
 class FileAnalyzerApp(QMainWindow):
     def __init__(self):
         super().__init__()
         self.single_file_table = None
-        self.batch_table = None 
+        self.batch_table = None
         self.database_table = None
-        self.current_results = None  # Store the current analysis results
-        self.analyzed_file_path = None  # Store the path of the currently analyzed file
-        self.batch_results = None  # Store batch processing results
-        self.signatures = []  # Initialize empty signatures list
-    
-        # Initialize the UI first
+        self.current_results = None
+        self.analyzed_file_path = None
+        self.batch_results = None
+        self.signatures = []
+        self.setAcceptDrops(True)
+
+        # Initialize ML classifier
+        try:
+            self.ml_classifier = MLFileClassifier()
+        except Exception:
+            self.ml_classifier = None
+
         self.initUI()
-    
-        # Then load data and perform other operations
         self.load_signatures()
         self.update_recent_files_menu()
 
+    def dragEnterEvent(self, event):
+        if event.mimeData().hasUrls():
+            event.acceptProposedAction()
+
+    def dropEvent(self, event):
+        urls = event.mimeData().urls()
+        if urls:
+            file_path = urls[0].toLocalFile()
+            if os.path.isfile(file_path):
+                self.tabs.setCurrentIndex(0)
+                self.file_path_edit.setText(file_path)
+                self.analyzed_file_path = file_path
+                self.analyze_current_file()
+                self.add_recent_file(file_path)
+
     def initUI(self):
         self.setWindowTitle(f"File Signature Analyzer v{APP_VERSION}")
-        self.setGeometry(100, 100, 1000, 800)
+        self.setGeometry(100, 100, 1100, 850)
 
-        # Set icon if available, otherwise use a fallback
-        icon_path = resource_path(resource_path(os.path.join("resources", "icons", "app_icon.png")))
-        if os.path.exists(resource_path(icon_path)):
+        icon_path = resource_path(os.path.join("resources", "icons", "app_icon.png"))
+        if os.path.exists(icon_path):
             self.setWindowIcon(QIcon(icon_path))
         else:
-            # Create resources/icons directory if it doesn't exist
             os.makedirs(resource_path(os.path.join("resources", "icons")), exist_ok=True)
 
-        # Create menu bar
         self.create_menu_bar()
-
-        # Create status bar
         self.statusBar().showMessage("Ready")
 
-        # Create tabs for different modes
         self.tabs = QTabWidget()
         self.setCentralWidget(self.tabs)
 
@@ -112,6 +143,16 @@ class FileAnalyzerApp(QMainWindow):
         self.database_tab = QWidget()
         self.tabs.addTab(self.database_tab, "File Type Database")
         self.setup_database_tab()
+
+        # Tab 4: ML Insights
+        self.ml_tab = QWidget()
+        self.tabs.addTab(self.ml_tab, "ML Insights")
+        self.setup_ml_tab()
+
+        # Tab 5: File Comparison
+        self.compare_tab = QWidget()
+        self.tabs.addTab(self.compare_tab, "File Comparison")
+        self.setup_compare_tab()
 
     def check_module_availability(self):
         """
@@ -347,6 +388,13 @@ class FileAnalyzerApp(QMainWindow):
         
         view_menu.addMenu(viz_menu)
 
+        view_menu.addSeparator()
+
+        # ML Insights
+        ml_insights_action = QAction("ML Insights", self)
+        ml_insights_action.triggered.connect(lambda: self.tabs.setCurrentIndex(3))
+        view_menu.addAction(ml_insights_action)
+
         # Tools menu
         tools_menu = menubar.addMenu("Tools")
 
@@ -371,6 +419,18 @@ class FileAnalyzerApp(QMainWindow):
         report_action = QAction("Generate Report", self)
         report_action.triggered.connect(self.generate_report)
         tools_menu.addAction(report_action)
+
+        tools_menu.addSeparator()
+
+        # ML Training
+        ml_train_action = QAction("ML Training", self)
+        ml_train_action.triggered.connect(self.train_ml_model)
+        tools_menu.addAction(ml_train_action)
+
+        # File Comparison
+        file_compare_action = QAction("File Comparison", self)
+        file_compare_action.triggered.connect(lambda: self.tabs.setCurrentIndex(4))
+        tools_menu.addAction(file_compare_action)
 
         # Help menu
         help_menu = menubar.addMenu("Help")
@@ -573,7 +633,7 @@ class FileAnalyzerApp(QMainWindow):
                             for xml_file in os.listdir(extract_dir):
                                 if xml_file.endswith(".xml"):
                                     try:
-                                        tree = ET.parse(resource_path(os.path.join(extract_dir, xml_file)))
+                                        tree = ET.parse(os.path.join(extract_dir, xml_file))
                                         root = tree.getroot()
                                     
                                         # Extract signature info from TrID XML format
@@ -589,7 +649,7 @@ class FileAnalyzerApp(QMainWindow):
                                             sig["Header offset"] = root.findtext("Offset", "0")
                                             signatures.append(sig)
                                     except Exception as e:
-                                        print(f"Error processing {xml_file}: {str(e)}")
+                                        pass
                         except ImportError:
                             self.finished_signal.emit(False, "Required libraries missing: py7zr")
                             return
@@ -623,8 +683,6 @@ class FileAnalyzerApp(QMainWindow):
                     self.finished_signal.emit(True, signatures)
                 
                 except Exception as e:
-                    import traceback
-                    traceback.print_exc()
                     self.finished_signal.emit(False, str(e))
     
         # Create and start the download thread
@@ -758,6 +816,34 @@ class FileAnalyzerApp(QMainWindow):
 
         basic_results_layout.addWidget(self.file_info_table)
 
+        # Confidence bar
+        conf_layout = QHBoxLayout()
+        conf_layout.addWidget(QLabel("Confidence:"))
+        self.confidence_bar = QProgressBar()
+        self.confidence_bar.setRange(0, 100)
+        self.confidence_bar.setValue(0)
+        self.confidence_bar.setTextVisible(True)
+        self.confidence_bar.setFormat("%v%")
+        self.confidence_bar.setStyleSheet(
+            "QProgressBar { border: 1px solid grey; border-radius: 3px; text-align: center; }"
+            "QProgressBar::chunk { background-color: #4CAF50; }"
+        )
+        conf_layout.addWidget(self.confidence_bar)
+        basic_results_layout.addLayout(conf_layout)
+
+        # Entropy and hash display
+        info_layout = QHBoxLayout()
+        self.entropy_label = QLabel("Entropy: --")
+        self.entropy_label.setStyleSheet("font-weight: bold;")
+        info_layout.addWidget(self.entropy_label)
+        self.md5_label = QLabel("MD5: --")
+        self.md5_label.setTextInteractionFlags(Qt.TextSelectableByMouse)
+        info_layout.addWidget(self.md5_label)
+        self.sha256_label = QLabel("SHA256: --")
+        self.sha256_label.setTextInteractionFlags(Qt.TextSelectableByMouse)
+        info_layout.addWidget(self.sha256_label)
+        basic_results_layout.addLayout(info_layout)
+
         # Action buttons
         action_layout = QHBoxLayout()
         save_as_button = QPushButton("Save As...")
@@ -768,11 +854,19 @@ class FileAnalyzerApp(QMainWindow):
         hex_view_button.clicked.connect(self.view_hex_dump)
         meta_button = QPushButton("View Metadata")
         meta_button.clicked.connect(self.view_metadata)
+        copy_md5_btn = QPushButton("Copy MD5")
+        copy_md5_btn.clicked.connect(lambda: QApplication.clipboard().setText(
+            self.current_results.get("md5", "")) if self.current_results else None)
+        copy_sha_btn = QPushButton("Copy SHA256")
+        copy_sha_btn.clicked.connect(lambda: QApplication.clipboard().setText(
+            self.current_results.get("sha256", "")) if self.current_results else None)
 
         action_layout.addWidget(save_as_button)
         action_layout.addWidget(rename_button)
         action_layout.addWidget(hex_view_button)
         action_layout.addWidget(meta_button)
+        action_layout.addWidget(copy_md5_btn)
+        action_layout.addWidget(copy_sha_btn)
         basic_results_layout.addLayout(action_layout)
 
         # Detailed matches section
@@ -829,35 +923,7 @@ class FileAnalyzerApp(QMainWindow):
 
         layout.addWidget(self.metadata_group)
     
-        # Set the layout for the tab (ONLY HERE, not in other methods)
         self.single_file_tab.setLayout(layout)
-
-        # Archive contents section (initially hidden)
-        self.archive_contents_group = QGroupBox("Archive Contents")
-        self.archive_contents_group.setVisible(False)
-        archive_contents_layout = QVBoxLayout()
-        self.archive_contents_group.setLayout(archive_contents_layout)
-        
-        # Create archive contents tree view
-        self.archive_tree = QTreeWidget()
-        self.archive_tree.setHeaderLabels(["Filename", "Size", "Type"])
-        self.archive_tree.setColumnWidth(0, 300)
-        archive_contents_layout.addWidget(self.archive_tree)
-        
-        # Archive action buttons
-        archive_action_layout = QHBoxLayout()
-        extract_button = QPushButton("Extract Selected")
-        extract_button.clicked.connect(self.extract_selected)
-        analyze_selected_button = QPushButton("Analyze Selected")
-        analyze_selected_button.clicked.connect(self.analyze_selected_archive_item)
-        archive_action_layout.addWidget(extract_button)
-        archive_action_layout.addWidget(analyze_selected_button)
-        archive_action_layout.addStretch()
-        archive_contents_layout.addLayout(archive_action_layout)
-
-        # ... existing code ...
-
-        layout.addWidget(self.archive_contents_group)  # Add archive contents group to main layout
 
     def setup_batch_tab(self):
         """
@@ -902,11 +968,24 @@ class FileAnalyzerApp(QMainWindow):
 
         layout.addWidget(input_group)
 
-        # Process button
+        # Process and Cancel buttons
+        btn_layout = QHBoxLayout()
         self.process_button = QPushButton("Process Files")
         self.process_button.clicked.connect(self.process_batch_files)
         self.process_button.setStyleSheet("background-color: #4CAF50; color: white; font-weight: bold;")
-        layout.addWidget(self.process_button)
+        btn_layout.addWidget(self.process_button)
+
+        self.cancel_button = QPushButton("Cancel")
+        self.cancel_button.setStyleSheet("background-color: #f44336; color: white; font-weight: bold;")
+        self.cancel_button.setVisible(False)
+        self.cancel_button.clicked.connect(self.cancel_batch)
+        btn_layout.addWidget(self.cancel_button)
+        layout.addLayout(btn_layout)
+
+        # Current file label
+        self.current_file_label = QLabel("")
+        self.current_file_label.setStyleSheet("color: #666; font-style: italic;")
+        layout.addWidget(self.current_file_label)
 
         # Progress bar
         self.progress_bar = QProgressBar()
@@ -1081,90 +1160,29 @@ class FileAnalyzerApp(QMainWindow):
         """Handle double-click on a signature in the table."""
         self.edit_signature()
     
-    def filter_signatures(self):
-        """
-        Filter the signatures table based on user input.
-        Enhanced to handle multiple filter criteria.
-        """
-        # Get filter values
-        filter_text = self.filter_edit.text().lower()
-        category_filter = self.category_combo.currentText()
-        ext_filter = self.ext_edit.text().lower()
-    
-        # Clear the table
-        self.signatures_table.setRowCount(0)
-    
-        # Count displayed signatures
-        displayed = 0
-    
-        # Apply filters
-        for sig in self.signatures:
-            # Get values to filter against
-            description = sig.get("File description", "").lower()
-            extensions = sig.get("File extension", "").lower()
-            header = sig.get("Header (hex)", "").lower()
-            category = sig.get("Category", "Other")
-        
-            # Apply text filter
-            if filter_text and not (filter_text in description or 
-                                filter_text in extensions or 
-                                filter_text in header):
-                continue
-            
-            # Apply category filter
-            if category_filter != "All Categories" and category != category_filter:
-                continue
-            
-            # Apply extension filter
-            if ext_filter and ext_filter not in extensions:
-                continue
-                
-            # All filters passed, add to table
-            row = self.signatures_table.rowCount()
-            self.signatures_table.insertRow(row)
-            self.signatures_table.setItem(row, 0, QTableWidgetItem(description))
-            self.signatures_table.setItem(row, 1, QTableWidgetItem(extensions))
-            self.signatures_table.setItem(row, 2, QTableWidgetItem(header))
-            self.signatures_table.setItem(row, 3, QTableWidgetItem(sig.get("Header offset", "0")))
-            self.signatures_table.setItem(row, 4, QTableWidgetItem(category))
-        
-            displayed += 1
-    
-        # Update stats label
-        self.db_stats_label.setText(f"Database Statistics: {displayed} of {len(self.signatures)} signatures shown")
-
     def load_signatures(self):
-        """
-        Load file signatures from the JSON file.
-        Enhanced to support a comprehensive signature database.
-        """
-        # First, try to load the default signatures file
-        default_sig_file = resource_path(resource_path(os.path.join("resources", "file_sigs.json")))
-        comprehensive_sig_file = resource_path(resource_path(os.path.join("resources", "comprehensive_sigs.json")))
-    
-        # Check if we have signatures already loaded
+        """Load file signatures from the JSON file."""
+        default_sig_file = resource_path(os.path.join("resources", "file_sigs.json"))
+        comprehensive_sig_file = resource_path(os.path.join("resources", "comprehensive_sigs.json"))
+
         signatures_loaded = False
-    
+
         try:
-            # Try loading comprehensive signatures first
-            if os.path.exists(resource_path(comprehensive_sig_file)):
+            if os.path.exists(comprehensive_sig_file):
                 with open(comprehensive_sig_file, 'r', encoding='utf-8') as f:
                     data = json.load(f)
                     if "filesigs" in data:
                         self.signatures = data.get('filesigs', [])
                         signatures_loaded = True
                         self.statusBar().showMessage(f"Loaded {len(self.signatures)} signatures from comprehensive database")
-                        print(f"Loaded {len(self.signatures)} signatures from comprehensive database")
-        
-            # If no comprehensive file, try the default file
-            if not signatures_loaded and os.path.exists(resource_path(default_sig_file)):
+
+            if not signatures_loaded and os.path.exists(default_sig_file):
                 with open(default_sig_file, 'r', encoding='utf-8') as f:
                     data = json.load(f)
                     if "filesigs" in data:
                         self.signatures = data.get('filesigs', [])
                         signatures_loaded = True
                         self.statusBar().showMessage(f"Loaded {len(self.signatures)} signatures from default database")
-                        print(f"Loaded {len(self.signatures)} signatures from default database")
         
             # If no signatures loaded yet, create them
             if not signatures_loaded:
@@ -1172,15 +1190,11 @@ class FileAnalyzerApp(QMainWindow):
                 self.save_signatures_to_disk()
                 signatures_loaded = True
                 self.statusBar().showMessage(f"Created default signature database with {len(self.signatures)} signatures")
-                print(f"Created default signature database with {len(self.signatures)} signatures")
-            
-            # Update the signatures table
+
             self.update_signatures_table()
-            
+
         except Exception as e:
             QMessageBox.critical(self, "Error", f"Failed to load signatures: {str(e)}")
-            print(f"Error loading signatures: {str(e)}")
-            # Create empty signatures file if error occurs
             self.signatures = []
             self.save_signatures_to_disk()
 
@@ -1279,8 +1293,6 @@ class FileAnalyzerApp(QMainWindow):
             self.statusBar().showMessage(f"Loaded {len(self.signatures)} signatures")
         
         except Exception as e:
-            import traceback
-            traceback.print_exc()
             QMessageBox.critical(self, "Error", f"Failed to import signatures: {str(e)}")
     
     def save_signatures_to_comprehensive_file(self):
@@ -1463,7 +1475,7 @@ class FileAnalyzerApp(QMainWindow):
         Select a single file for analysis.
         """
         file_path, _ = QFileDialog.getOpenFileName(self, "Select File to Analyze")
-        if file_path and os.path.exists(resource_path(file_path)):
+        if file_path and os.path.exists(file_path):
             self.file_path_edit.setText(file_path)
             self.analyzed_file_path = file_path
     
@@ -1493,46 +1505,49 @@ class FileAnalyzerApp(QMainWindow):
             self.add_recent_file(file_path)
 
     def analyze_current_file(self):
-        """
-        Analyze the currently selected file.
-        """
-        print("Starting analyze_current_file...")  # Debug print
+        """Analyze the currently selected file."""
         file_path = self.file_path_edit.text()
-        print(f"File path: {file_path}")  # Debug print
-    
-        if not file_path or not os.path.exists(resource_path(file_path)):
-            print("File path is invalid or doesn't exist")  # Debug print
+
+        if not file_path or not os.path.exists(file_path):
             QMessageBox.warning(self, "Error", "Please select a valid file to analyze.")
             return
-    
+
         try:
-            # Get file information
             file_size = os.path.getsize(file_path)
-            print(f"File size: {file_size}")  # Debug print
             file_name = os.path.basename(file_path)
-            print(f"File name: {file_name}")  # Debug print
-    
-            # Identify the file type
-            print("About to identify file type...")  # Debug print
-            print(f"Number of signatures: {len(self.signatures)}")  # Debug print
+
             file_type, primary_ext, all_extensions, matches = identify_file_type(file_path, self.signatures)
-            print(f"File type identified: {file_type}")  # Debug print
-    
-            # Print debug info about matches for troubleshooting
-            print(f"Found {len(matches)} signature matches")
-            for i, match in enumerate(matches):
-                print(f"Match {i+1}: {match.get('description', 'Unknown')}")
-                print(f"  Extension: {match.get('extension', '')}")
-                print(f"  All Extensions: {match.get('all_extensions', [])}")
-                print(f"  Hex Signature: {match.get('hex_signature', '')}")
-                print(f"  Priority: {match.get('priority', 0)}")
-            
-            # Extract metadata
-            print("About to extract metadata...")  # Debug print
-            metadata = MetadataExtractor.extract_metadata(file_path)
-            print("Metadata extracted")  # Debug print
-    
-            # Store results first
+
+            # Extract metadata using detected type
+            metadata = MetadataExtractor.extract_metadata(file_path, detected_type=file_type)
+
+            # Calculate entropy
+            try:
+                with open(file_path, 'rb') as f:
+                    file_data = f.read(65536)
+                entropy = calculate_entropy(file_data)
+            except Exception:
+                entropy = 0.0
+
+            # Calculate hashes
+            try:
+                md5_hash = hashlib.md5()
+                sha256_hash = hashlib.sha256()
+                with open(file_path, 'rb') as f:
+                    for chunk in iter(lambda: f.read(8192), b''):
+                        md5_hash.update(chunk)
+                        sha256_hash.update(chunk)
+                md5_str = md5_hash.hexdigest()
+                sha256_str = sha256_hash.hexdigest()
+            except Exception:
+                md5_str = "Error"
+                sha256_str = "Error"
+
+            # Get confidence from best match
+            confidence = 0
+            if matches:
+                confidence = matches[0].get("confidence", matches[0].get("priority", 50))
+
             self.current_results = {
                 "file_path": file_path,
                 "file_name": file_name,
@@ -1541,75 +1556,75 @@ class FileAnalyzerApp(QMainWindow):
                 "primary_ext": primary_ext,
                 "all_extensions": all_extensions,
                 "matches": matches,
-                "metadata": metadata
+                "metadata": metadata,
+                "entropy": entropy,
+                "md5": md5_str,
+                "sha256": sha256_str,
+                "confidence": confidence,
             }
-            print("Results stored")  # Debug print
-            
+
             # Update the basic info table
             self.file_info_table.setItem(0, 1, QTableWidgetItem(file_name))
             self.file_info_table.setItem(1, 1, QTableWidgetItem(self.format_file_size(file_size)))
             self.file_info_table.setItem(2, 1, QTableWidgetItem(file_type))
             self.file_info_table.setItem(3, 1, QTableWidgetItem(primary_ext))
             self.file_info_table.setItem(4, 1, QTableWidgetItem(file_path))
-            print("file_info_table updated")  # Debug print
-        
+
+            # Update confidence bar
+            if hasattr(self, 'confidence_bar'):
+                self.confidence_bar.setValue(min(confidence, 100))
+
+            # Update entropy label
+            if hasattr(self, 'entropy_label'):
+                color = "#4CAF50" if entropy < 4 else "#FF9800" if entropy < 7 else "#f44336"
+                self.entropy_label.setText(f"Entropy: {entropy:.3f}")
+                self.entropy_label.setStyleSheet(f"color: {color}; font-weight: bold;")
+
+            # Update hash labels
+            if hasattr(self, 'md5_label'):
+                self.md5_label.setText(f"MD5: {md5_str}")
+            if hasattr(self, 'sha256_label'):
+                self.sha256_label.setText(f"SHA256: {sha256_str}")
+
             # Update the matches table
-            print("About to update matches_table")  # Debug print
             self.matches_table.setRowCount(0)
             for match in matches:
                 row = self.matches_table.rowCount()
                 self.matches_table.insertRow(row)
                 self.matches_table.setItem(row, 0, QTableWidgetItem(match.get("description", "")))
-                print("matches_table updated")  # Debug print
-            
-                # Add extensions to the second column
                 extensions = match.get("all_extensions", [])
-                if isinstance(extensions, list):
-                    ext_str = ", ".join(extensions)
-                else:
-                    ext_str = str(extensions)
+                ext_str = ", ".join(extensions) if isinstance(extensions, list) else str(extensions)
                 self.matches_table.setItem(row, 1, QTableWidgetItem(ext_str))
-
-                # Add hex signature to the third column
                 self.matches_table.setItem(row, 2, QTableWidgetItem(match.get("hex_signature", "")))
-            
-                # Add priority to the fourth column
                 self.matches_table.setItem(row, 3, QTableWidgetItem(str(match.get("priority", 0))))
-        
-            # Update metadata table (but keep it hidden)
+
             self.update_metadata_table(metadata)
-            print("metadata_table updated")  # Debug print
-            
-            # Check if this is an archive file and if archive processing is enabled
+
+            # Check if archive
             self.archive_contents_group.setVisible(False)
             self.archive_tree.clear()
-        
+
             is_archive = False
             if self.archive_check.isChecked():
-                if primary_ext.lower() in ["zip", "rar", "7z", "tar", "gz", "bz2"] or file_type.lower().find("archive") != -1:
+                if primary_ext.lower() in ["zip", "rar", "7z", "tar", "gz", "bz2"] or "archive" in file_type.lower():
                     is_archive = True
                     self.process_archive_file(file_path, primary_ext.lower())
-            
-            # Update status message
+
             if is_archive:
                 self.statusBar().showMessage(f"File analyzed: {file_name} - {file_type} (Archive contents available)")
             else:
                 self.statusBar().showMessage(f"File analyzed: {file_name} - {file_type}")
-            
-            self.statusBar().showMessage(f"File analyzed: {file_name} - {file_type}")
-            print("Status bar updated")  # Debug print
-    
+
+            # Update ML tab
+            if self.ml_classifier:
+                ml_predictions = self.ml_classifier.predict(file_path)
+                self.update_ml_tab(file_path, file_type, entropy, confidence, ml_predictions)
+
         except Exception as e:
-            print(f"EXCEPTION: {str(e)}")  # Debug print
-            import traceback
-            traceback.print_exc()  # Print full traceback for debugging
             QMessageBox.critical(self, "Error", f"Failed to analyze file: {str(e)}")
             
     def process_archive_file(self, file_path, extension):
-        """
-        Process an archive file and display its contents.
-        """
-        print(f"Processing archive: {file_path} with extension {extension}")
+        """Process an archive file and display its contents."""
         try:
             # Clear previous data
             self.archive_tree.clear()
@@ -1624,10 +1639,8 @@ class FileAnalyzerApp(QMainWindow):
             
             # Process based on archive type
             if extension in ["zip", "docx", "xlsx", "pptx", "epub"]:
-                print("Processing as ZIP")
                 self.process_zip_archive(file_path, root)
             elif extension == "rar":
-                print("Processing as RAR")
                 # Try to process RAR, but handle missing module
                 try:
                     import rarfile
@@ -1636,7 +1649,6 @@ class FileAnalyzerApp(QMainWindow):
                     QTreeWidgetItem(root, ["RAR support requires 'rarfile' module", "", ""])
                     QTreeWidgetItem(root, ["Install with: pip install rarfile", "", ""])
             elif extension in ["7z"]:
-                print("Processing as 7Z")
                 # Try to process 7Z, but handle missing module
                 try:
                     import py7zr
@@ -1645,16 +1657,11 @@ class FileAnalyzerApp(QMainWindow):
                     QTreeWidgetItem(root, ["7Z support requires 'py7zr' module", "", ""])
                     QTreeWidgetItem(root, ["Install with: pip install py7zr", "", ""])
             elif extension in ["tar", "gz", "bz2"]:
-                print("Processing as TAR")
                 self.process_tar_archive(file_path, root)
             else:
-                print(f"Unsupported archive format: {extension}")
                 QTreeWidgetItem(root, ["Unsupported archive format", "", ""])
                 
         except Exception as e:
-            print(f"Exception in process_archive_file: {str(e)}")
-            import traceback
-            traceback.print_exc()
             QMessageBox.warning(self, "Archive Processing Error", f"Failed to process archive: {str(e)}")
         
     def extract_temp_from_zip(self, archive_path, item_path, temp_dir):
@@ -1679,7 +1686,6 @@ class FileAnalyzerApp(QMainWindow):
         
             return None
         except Exception as e:
-            print(f"Error extracting from ZIP: {str(e)}")
             return None
         
     def extract_temp_from_rar(self, archive_path, item_path, temp_dir):
@@ -1704,10 +1710,8 @@ class FileAnalyzerApp(QMainWindow):
             
             return None
         except ImportError:
-            print("rarfile module not available")
             return None
         except Exception as e:
-            print(f"Error extracting from RAR: {str(e)}")
             return None
 
     def extract_temp_from_7z(self, archive_path, item_path, temp_dir):
@@ -1733,10 +1737,8 @@ class FileAnalyzerApp(QMainWindow):
                 
             return None
         except ImportError:
-            print("py7zr module not available")
             return None
         except Exception as e:
-            print(f"Error extracting from 7z: {str(e)}")
             return None
 
     def extract_temp_from_tar(self, archive_path, item_path, temp_dir):
@@ -1763,7 +1765,6 @@ class FileAnalyzerApp(QMainWindow):
             
             return None
         except Exception as e:
-            print(f"Error extracting from TAR: {str(e)}")
             return None    
         
     def process_zip_archive(self, file_path, parent_item):
@@ -2130,49 +2131,6 @@ class FileAnalyzerApp(QMainWindow):
             selected_paths = []
             for item in selected_items:
                 path = self.get_item_full_path(item)
-                if path:  # Skip the root item (archive itself)
-                    selected_paths.append(path)
-            
-            # Extract files
-            with zipfile.ZipFile(archive_path, 'r') as zip_ref:
-                for file in zip_ref.namelist():
-                    # Check if file should be extracted
-                    for selected_path in selected_paths:
-                        if file == selected_path or file.startswith(selected_path + '/'):
-                            # Extract file
-                            zip_ref.extract(file, dest_dir)
-                            break
-                            
-            QMessageBox.information(self, "Extract", "Files extracted successfully.")
-        except Exception as e:
-            QMessageBox.critical(self, "Extract Error", f"Failed to extract files: {str(e)}")
-
-    def get_item_full_path(self, item):
-        """
-        Get the full path of a tree item.
-        """
-        path_parts = []
-        
-        # Traverse up the tree to get all path components
-        current = item
-        while current.parent() is not None:  # Stop at root item
-            path_parts.insert(0, current.text(0))
-            current = current.parent()
-        
-        # Join path parts
-        return '/'.join(path_parts)
-    
-    def extract_from_zip(self, archive_path, selected_items, dest_dir):
-        """
-        Extract files from a ZIP archive.
-        """
-        try:
-            import zipfile
-            
-            # Get list of selected file paths
-            selected_paths = []
-            for item in selected_items:
-                path = self.get_item_full_path(item)
                 selected_paths.append(path)
             
             # Extract files
@@ -2329,7 +2287,7 @@ class FileAnalyzerApp(QMainWindow):
             
             # Suggest output directory if it's not set
             if not self.output_dir_edit.text():
-                suggested_output = resource_path(os.path.join(dir_path, "processed"))
+                suggested_output = os.path.join(dir_path, "processed")
                 self.output_dir_edit.setText(suggested_output)
 
     def select_output_dir(self):
@@ -2340,26 +2298,8 @@ class FileAnalyzerApp(QMainWindow):
         if dir_path:
             self.output_dir_edit.setText(dir_path)
 
-    def analyze_single_file(self):
-        """
-        Analyze a single file selected by the user through the menu.
-        """
-        file_path, _ = QFileDialog.getOpenFileName(self, "Select File to Analyze")
-        if file_path:
-            # Switch to the single file tab
-            self.tabs.setCurrentIndex(0)
-            # Update the file path field
-            self.file_path_edit.setText(file_path)
-            self.analyzed_file_path = file_path
-            # Analyze the file
-            self.analyze_current_file()
-            # Add to recent files
-            self.add_recent_file(file_path)
-
     def analyze_multiple_files(self):
-        """
-        Analyze multiple files selected by the user.
-        """
+        """Analyze multiple files selected by the user."""
         file_paths, _ = QFileDialog.getOpenFileNames(self, "Select Files to Analyze")
         if not file_paths:
             return
@@ -2370,16 +2310,15 @@ class FileAnalyzerApp(QMainWindow):
         # Create a temporary directory for processing
         import tempfile
         temp_dir = tempfile.mkdtemp()
-        output_dir = resource_path(os.path.join(temp_dir, "analyzed"))
-        os.makedirs(resource_path(output_dir, exist_ok=True))
-        
-        # Copy files to temp directory for batch processing
-        input_dir = resource_path(os.path.join(temp_dir, "input"))
-        os.makedirs(resource_path(input_dir, exist_ok=True))
-        
+        output_dir = os.path.join(temp_dir, "analyzed")
+        os.makedirs(output_dir, exist_ok=True)
+
+        input_dir = os.path.join(temp_dir, "input")
+        os.makedirs(input_dir, exist_ok=True)
+
         for file_path in file_paths:
             filename = os.path.basename(file_path)
-            shutil.copy2(file_path, resource_path(os.path.join(input_dir, filename)))
+            shutil.copy2(file_path, os.path.join(input_dir, filename))
         
         # Set up the batch processing
         self.input_dir_edit.setText(input_dir)
@@ -2399,34 +2338,33 @@ class FileAnalyzerApp(QMainWindow):
             QMessageBox.warning(self, "Error", "Please select input and output directories.")
             return
 
-        # Check if directories exist
-        if not os.path.exists(resource_path(input_dir)):
+        if not os.path.exists(input_dir):
             QMessageBox.warning(self, "Error", f"Input directory {input_dir} does not exist.")
             return
-            
-        # Create output directory if it doesn't exist
-        if not os.path.exists(resource_path(output_dir)):
+
+        if not os.path.exists(output_dir):
             try:
-                os.makedirs(resource_path(output_dir))
+                os.makedirs(output_dir)
             except Exception as e:
                 QMessageBox.warning(self, "Error", f"Could not create output directory: {str(e)}")
                 return
 
-        # Process files in a separate thread
         self.progress_bar.setVisible(True)
         self.progress_bar.setValue(0)
         self.process_button.setEnabled(False)
+        self.cancel_button.setVisible(True)
         self.batch_results_table.setRowCount(0)
 
         self.worker = BatchFileProcessor(
-            input_dir, 
-            output_dir, 
+            input_dir,
+            output_dir,
             self.signatures,
             recursive=self.recursive_check.isChecked(),
             rename_files=self.rename_check.isChecked()
         )
         self.worker.progress_signal.connect(self.update_progress)
         self.worker.file_processed_signal.connect(self.add_batch_result)
+        self.worker.current_file_signal.connect(self.update_current_file)
         self.worker.finished_signal.connect(self.on_batch_finished)
         self.worker.start()
 
@@ -2465,11 +2403,11 @@ class FileAnalyzerApp(QMainWindow):
         self.batch_results_table.setItem(row, 3, status_cell)
         
     def on_batch_finished(self, results):
-        """
-        Handle batch processing completion.
-        """
+        """Handle batch processing completion."""
         self.progress_bar.setVisible(False)
         self.process_button.setEnabled(True)
+        self.cancel_button.setVisible(False)
+        self.current_file_label.setText("")
         
         # Store the results for potential saving
         self.batch_results = results
@@ -2739,10 +2677,9 @@ class FileAnalyzerApp(QMainWindow):
         dir_name = os.path.dirname(original_file)
         base_name = os.path.splitext(os.path.basename(original_file))[0]
         new_filename = f"{base_name}.{suggested_ext}"
-        new_path = resource_path(os.path.join(dir_name, new_filename))
-        
-        # Check if the file already exists
-        if os.path.exists(resource_path(new_path)) and new_path != original_file:
+        new_path = os.path.join(dir_name, new_filename)
+
+        if os.path.exists(new_path) and new_path != original_file:
             reply = QMessageBox.question(
                 self, "File Exists", 
                 f"File {new_filename} already exists. Overwrite?",
@@ -3309,10 +3246,9 @@ class FileAnalyzerApp(QMainWindow):
         """
         Show the help documentation.
         """
-        help_file = icon_path = resource_path(os.path.join("resources", "help.html"))
-        
-        # Check if help file exists
-        if os.path.exists(resource_path(help_file)):
+        help_file = resource_path(os.path.join("resources", "help.html"))
+
+        if os.path.exists(help_file):
             QDesktopServices.openUrl(QUrl.fromLocalFile(help_file))
         else:
             QMessageBox.information(
@@ -3413,7 +3349,7 @@ class FileAnalyzerApp(QMainWindow):
         """
         try:
             recent_file = resource_path(os.path.join("resources", "recent_files.json"))
-            if os.path.exists(resource_path(recent_file)):
+            if os.path.exists(recent_file):
                 with open(recent_file, 'r', encoding='utf-8') as f:
                     return json.load(f)
             else:
@@ -3427,7 +3363,7 @@ class FileAnalyzerApp(QMainWindow):
         """
         try:
             # Ensure resources directory exists
-            os.makedirs(resource_path("resources", exist_ok=True))
+            os.makedirs(resource_path("resources"), exist_ok=True)
             
             recent_file = resource_path(os.path.join("resources", "recent_files.json"))
             with open(recent_file, 'w', encoding='utf-8') as f:
@@ -3468,16 +3404,11 @@ class FileAnalyzerApp(QMainWindow):
         action = self.sender()
         if action:
             file_path = action.data()
-            if os.path.exists(resource_path(file_path)):
-                # Switch to single file tab
+            if os.path.exists(file_path):
                 self.tabs.setCurrentIndex(0)
-                
-                # Set file path
                 self.file_path_edit.setText(file_path)
                 self.analyzed_file_path = file_path
-                
-                # Analyze file
-                self.analyze_single_file()
+                self.analyze_current_file()
             else:
                 QMessageBox.warning(
                     self, "File Not Found", 
@@ -3498,10 +3429,308 @@ class FileAnalyzerApp(QMainWindow):
         self.save_recent_files([])
         self.update_recent_files_menu()
 
+    def cancel_batch(self):
+        """Cancel running batch processing."""
+        if hasattr(self, 'worker') and self.worker.isRunning():
+            self.worker.stop()
+            self.cancel_button.setVisible(False)
+            self.statusBar().showMessage("Batch processing cancelled")
+
+    def update_current_file(self, filename):
+        """Update the current file label during batch processing."""
+        if hasattr(self, 'current_file_label'):
+            self.current_file_label.setText(f"Processing: {filename}")
+
+    def setup_ml_tab(self):
+        """Set up the ML Insights tab."""
+        layout = QVBoxLayout()
+
+        # Model status
+        status_group = QGroupBox("ML Model Status")
+        status_layout = QVBoxLayout()
+        status_group.setLayout(status_layout)
+
+        self.ml_status_label = QLabel("Model: Not loaded")
+        self.ml_status_label.setStyleSheet("font-weight: bold;")
+        status_layout.addWidget(self.ml_status_label)
+
+        if self.ml_classifier and self.ml_classifier.is_model_loaded():
+            info = self.ml_classifier.get_model_info()
+            self.ml_status_label.setText(f"Model: Loaded ({info.get('n_classes', '?')} classes)")
+
+        layout.addWidget(status_group)
+
+        # Confidence gauge
+        gauge_group = QGroupBox("Analysis Confidence")
+        gauge_layout = QVBoxLayout()
+        gauge_group.setLayout(gauge_layout)
+
+        self.ml_confidence_bar = QProgressBar()
+        self.ml_confidence_bar.setRange(0, 100)
+        self.ml_confidence_bar.setValue(0)
+        self.ml_confidence_bar.setTextVisible(True)
+        self.ml_confidence_bar.setFormat("%v%")
+        self.ml_confidence_bar.setMinimumHeight(30)
+        gauge_layout.addWidget(self.ml_confidence_bar)
+
+        self.ml_entropy_label = QLabel("Entropy: --")
+        self.ml_entropy_label.setStyleSheet("font-size: 14px; font-weight: bold;")
+        gauge_layout.addWidget(self.ml_entropy_label)
+
+        layout.addWidget(gauge_group)
+
+        # ML Predictions table
+        pred_group = QGroupBox("ML Predictions")
+        pred_layout = QVBoxLayout()
+        pred_group.setLayout(pred_layout)
+
+        self.ml_predictions_table = QTableWidget(0, 3)
+        self.ml_predictions_table.setHorizontalHeaderLabels(["File Type", "Confidence %", "Extension"])
+        self.ml_predictions_table.horizontalHeader().setStretchLastSection(True)
+        pred_layout.addWidget(self.ml_predictions_table)
+
+        layout.addWidget(pred_group)
+
+        # Action buttons
+        btn_layout = QHBoxLayout()
+
+        train_btn = QPushButton("Train Model")
+        train_btn.setStyleSheet("background-color: #2196F3; color: white; font-weight: bold;")
+        train_btn.clicked.connect(self.train_ml_model)
+        btn_layout.addWidget(train_btn)
+
+        correct_btn = QPushButton("Record Correction")
+        correct_btn.setToolTip("Record a correction if the ML prediction was wrong")
+        correct_btn.clicked.connect(self.record_ml_correction)
+        btn_layout.addWidget(correct_btn)
+
+        layout.addLayout(btn_layout)
+        layout.addStretch()
+
+        self.ml_tab.setLayout(layout)
+
+    def setup_compare_tab(self):
+        """Set up the File Comparison tab."""
+        layout = QVBoxLayout()
+
+        # File selection
+        files_group = QGroupBox("Select Files to Compare")
+        files_layout = QVBoxLayout()
+        files_group.setLayout(files_layout)
+
+        # File 1
+        file1_layout = QHBoxLayout()
+        file1_layout.addWidget(QLabel("File 1:"))
+        self.compare_file1_edit = QLineEdit()
+        self.compare_file1_edit.setReadOnly(True)
+        file1_btn = QPushButton("Browse...")
+        file1_btn.clicked.connect(lambda: self._browse_compare_file(1))
+        file1_layout.addWidget(self.compare_file1_edit)
+        file1_layout.addWidget(file1_btn)
+        files_layout.addLayout(file1_layout)
+
+        # File 2
+        file2_layout = QHBoxLayout()
+        file2_layout.addWidget(QLabel("File 2:"))
+        self.compare_file2_edit = QLineEdit()
+        self.compare_file2_edit.setReadOnly(True)
+        file2_btn = QPushButton("Browse...")
+        file2_btn.clicked.connect(lambda: self._browse_compare_file(2))
+        file2_layout.addWidget(self.compare_file2_edit)
+        file2_layout.addWidget(file2_btn)
+        files_layout.addLayout(file2_layout)
+
+        compare_btn = QPushButton("Compare Files")
+        compare_btn.setStyleSheet("background-color: #4CAF50; color: white; font-weight: bold;")
+        compare_btn.clicked.connect(self.run_comparison)
+        files_layout.addWidget(compare_btn)
+
+        layout.addWidget(files_group)
+
+        # Comparison results
+        results_group = QGroupBox("Comparison Results")
+        results_layout = QVBoxLayout()
+        results_group.setLayout(results_layout)
+
+        self.compare_info_label = QLabel("Select two files and click Compare")
+        results_layout.addWidget(self.compare_info_label)
+
+        # Side-by-side hex display
+        hex_splitter = QSplitter(Qt.Horizontal)
+        self.compare_hex1 = QTextEdit()
+        self.compare_hex1.setReadOnly(True)
+        self.compare_hex1.setFont(QFont("Courier New", 9))
+        self.compare_hex2 = QTextEdit()
+        self.compare_hex2.setReadOnly(True)
+        self.compare_hex2.setFont(QFont("Courier New", 9))
+        hex_splitter.addWidget(self.compare_hex1)
+        hex_splitter.addWidget(self.compare_hex2)
+        results_layout.addWidget(hex_splitter)
+
+        # Hash comparison
+        self.compare_hash_label = QLabel("")
+        self.compare_hash_label.setTextInteractionFlags(Qt.TextSelectableByMouse)
+        results_layout.addWidget(self.compare_hash_label)
+
+        layout.addWidget(results_group)
+
+        self.compare_tab.setLayout(layout)
+
+    def _browse_compare_file(self, file_num):
+        """Browse for a file to compare."""
+        file_path, _ = QFileDialog.getOpenFileName(self, f"Select File {file_num}")
+        if file_path:
+            if file_num == 1:
+                self.compare_file1_edit.setText(file_path)
+            else:
+                self.compare_file2_edit.setText(file_path)
+
+    def run_comparison(self):
+        """Compare two files side by side."""
+        file1 = self.compare_file1_edit.text()
+        file2 = self.compare_file2_edit.text()
+
+        if not file1 or not file2:
+            QMessageBox.warning(self, "Error", "Please select both files to compare.")
+            return
+
+        if not os.path.exists(file1) or not os.path.exists(file2):
+            QMessageBox.warning(self, "Error", "One or both files do not exist.")
+            return
+
+        try:
+            # Read file headers (first 512 bytes)
+            with open(file1, 'rb') as f:
+                data1 = f.read(512)
+            with open(file2, 'rb') as f:
+                data2 = f.read(512)
+
+            # Format hex dumps
+            self.compare_hex1.setPlainText(self._format_hex_dump(data1, os.path.basename(file1)))
+            self.compare_hex2.setPlainText(self._format_hex_dump(data2, os.path.basename(file2)))
+
+            # Get file types
+            type1, ext1, _, _ = identify_file_type(file1, self.signatures)
+            type2, ext2, _, _ = identify_file_type(file2, self.signatures)
+
+            # Calculate hashes
+            hash1_md5 = hashlib.md5(open(file1, 'rb').read()).hexdigest()
+            hash2_md5 = hashlib.md5(open(file2, 'rb').read()).hexdigest()
+            hash1_sha = hashlib.sha256(open(file1, 'rb').read()).hexdigest()
+            hash2_sha = hashlib.sha256(open(file2, 'rb').read()).hexdigest()
+
+            files_match = hash1_sha == hash2_sha
+            match_text = "IDENTICAL" if files_match else "DIFFERENT"
+            match_color = "#4CAF50" if files_match else "#f44336"
+
+            info = (
+                f"<b>File 1:</b> {type1} (.{ext1}) | Size: {self.format_file_size(os.path.getsize(file1))}<br>"
+                f"<b>File 2:</b> {type2} (.{ext2}) | Size: {self.format_file_size(os.path.getsize(file2))}<br>"
+                f"<b>Result: <span style='color:{match_color}'>{match_text}</span></b>"
+            )
+            self.compare_info_label.setText(info)
+
+            hash_info = (
+                f"File 1 MD5: {hash1_md5}\nFile 1 SHA256: {hash1_sha}\n"
+                f"File 2 MD5: {hash2_md5}\nFile 2 SHA256: {hash2_sha}"
+            )
+            self.compare_hash_label.setText(hash_info)
+
+        except Exception as e:
+            QMessageBox.critical(self, "Error", f"Comparison failed: {str(e)}")
+
+    def _format_hex_dump(self, data, title=""):
+        """Format binary data as a hex dump string."""
+        lines = [f"=== {title} ({len(data)} bytes) ===\n"]
+        for i in range(0, len(data), 16):
+            chunk = data[i:i+16]
+            hex_part = " ".join(f"{b:02X}" for b in chunk)
+            ascii_part = "".join(chr(b) if 32 <= b < 127 else "." for b in chunk)
+            lines.append(f"{i:08X}  {hex_part:<48s}  |{ascii_part}|")
+        return "\n".join(lines)
+
+    def update_ml_tab(self, file_path, file_type, entropy, confidence, ml_predictions):
+        """Update the ML Insights tab with analysis results."""
+        self.ml_confidence_bar.setValue(min(confidence, 100))
+
+        color = "#4CAF50" if entropy < 4 else "#FF9800" if entropy < 7 else "#f44336"
+        self.ml_entropy_label.setText(f"Entropy: {entropy:.3f}")
+        self.ml_entropy_label.setStyleSheet(f"font-size: 14px; font-weight: bold; color: {color};")
+
+        # Update predictions table
+        self.ml_predictions_table.setRowCount(0)
+        if ml_predictions:
+            for file_type_pred, conf, ext in ml_predictions[:10]:
+                row = self.ml_predictions_table.rowCount()
+                self.ml_predictions_table.insertRow(row)
+                self.ml_predictions_table.setItem(row, 0, QTableWidgetItem(file_type_pred))
+                self.ml_predictions_table.setItem(row, 1, QTableWidgetItem(f"{conf:.1f}"))
+                self.ml_predictions_table.setItem(row, 2, QTableWidgetItem(ext))
+
+    def train_ml_model(self):
+        """Train the ML model from a directory of labeled files."""
+        train_dir = QFileDialog.getExistingDirectory(
+            self, "Select Training Data Directory",
+        )
+        if not train_dir:
+            return
+
+        if not self.ml_classifier:
+            QMessageBox.warning(self, "Error", "ML classifier not available.")
+            return
+
+        # Collect training data (subfolder names are labels)
+        training_files = []
+        labels = []
+        for label_dir in os.listdir(train_dir):
+            label_path = os.path.join(train_dir, label_dir)
+            if os.path.isdir(label_path):
+                for fname in os.listdir(label_path):
+                    fpath = os.path.join(label_path, fname)
+                    if os.path.isfile(fpath):
+                        training_files.append(fpath)
+                        labels.append(label_dir)
+
+        if len(training_files) < 5:
+            QMessageBox.warning(self, "Insufficient Data",
+                "Need at least 5 labeled files. Organize training data as:\n"
+                "training_dir/\n  JPEG Image/\n    file1.jpg\n  PNG Image/\n    file2.png")
+            return
+
+        try:
+            accuracy = self.ml_classifier.train(training_files, labels)
+            info = self.ml_classifier.get_model_info()
+            self.ml_status_label.setText(
+                f"Model: Trained ({info.get('n_classes', '?')} classes, accuracy: {accuracy:.1%})")
+            QMessageBox.information(self, "Training Complete",
+                f"Model trained on {len(training_files)} files with {accuracy:.1%} accuracy.")
+        except Exception as e:
+            QMessageBox.critical(self, "Training Error", f"Failed to train model: {str(e)}")
+
+    def record_ml_correction(self):
+        """Record a correction for ML learning."""
+        if not self.current_results:
+            QMessageBox.warning(self, "Error", "Please analyze a file first.")
+            return
+
+        if not self.ml_classifier:
+            QMessageBox.warning(self, "Error", "ML classifier not available.")
+            return
+
+        correct_type, ok = QInputDialog.getText(
+            self, "Record Correction",
+            f"Current prediction: {self.current_results.get('file_type', 'Unknown')}\n"
+            "Enter the correct file type:",
+        )
+
+        if ok and correct_type:
+            self.ml_classifier.record_correction(
+                self.current_results["file_path"], correct_type)
+            QMessageBox.information(self, "Correction Recorded",
+                f"Recorded correction: {correct_type}")
+
     def format_file_size(self, size_in_bytes):
-        """
-        Format file size in human-readable format.
-        """
+        """Format file size in human-readable format."""
         if size_in_bytes < 1024:
             return f"{size_in_bytes} bytes"
         elif size_in_bytes < 1024 * 1024:
