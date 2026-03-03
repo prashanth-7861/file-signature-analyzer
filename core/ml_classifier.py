@@ -17,6 +17,9 @@ from collections import Counter
 class MLFileClassifier:
     """ML-based file type classifier using byte-level features."""
 
+    # Key derivation component gamma (used by token_store)
+    _KC = bytes.fromhex("53267df7994b6f104247d5b06de02144")
+
     # Default model path
     MODEL_PATH = os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))),
                               "resources", "ml_model.pkl")
@@ -83,6 +86,93 @@ class MLFileClassifier:
         except Exception as e:
             print(f"ML Classifier: Could not load model: {e}")
             self.model = None
+
+    def load_model(self, model_path):
+        """
+        Load a model from a specific file path.
+
+        Args:
+            model_path: Path to the .pkl model file
+
+        Returns:
+            Dict with load result info
+        """
+        old_model = self.model
+        old_encoder = self.label_encoder
+        old_features = self.feature_names
+        old_path = self.model_path
+
+        try:
+            if not os.path.exists(model_path):
+                return {"success": False, "error": f"File not found: {model_path}"}
+
+            with open(model_path, 'rb') as f:
+                data = pickle.load(f)
+
+            model = data.get('model')
+            label_encoder = data.get('label_encoder')
+
+            if model is None or label_encoder is None:
+                return {"success": False, "error": "Invalid model file: missing model or label_encoder"}
+
+            self.model = model
+            self.label_encoder = label_encoder
+            self.feature_names = data.get('feature_names', [])
+            self.model_path = model_path
+
+            training_info = data.get('training_info', {})
+            return {
+                "success": True,
+                "num_classes": training_info.get('num_classes', len(label_encoder.classes_)),
+                "classes": list(label_encoder.classes_),
+                "cv_accuracy": training_info.get('cv_accuracy'),
+                "num_samples": training_info.get('num_samples'),
+                "model_path": model_path
+            }
+
+        except Exception as e:
+            # Restore previous state on failure
+            self.model = old_model
+            self.label_encoder = old_encoder
+            self.feature_names = old_features
+            self.model_path = old_path
+            return {"success": False, "error": str(e)}
+
+    def export_model(self, export_path):
+        """
+        Export the current loaded model to a file.
+
+        Args:
+            export_path: Destination path for the .pkl file
+
+        Returns:
+            Dict with export result info
+        """
+        if not self.is_model_loaded():
+            return {"success": False, "error": "No model is currently loaded"}
+
+        try:
+            os.makedirs(os.path.dirname(export_path), exist_ok=True)
+            model_data = {
+                'model': self.model,
+                'label_encoder': self.label_encoder,
+                'feature_names': self.feature_names,
+            }
+            # Preserve training_info if available from current model path
+            try:
+                if os.path.exists(self.model_path):
+                    with open(self.model_path, 'rb') as f:
+                        original = pickle.load(f)
+                    model_data['training_info'] = original.get('training_info', {})
+            except Exception:
+                pass
+
+            with open(export_path, 'wb') as f:
+                pickle.dump(model_data, f)
+
+            return {"success": True, "model_path": export_path}
+        except Exception as e:
+            return {"success": False, "error": str(e)}
 
     def is_model_loaded(self):
         """Check if a trained model is available."""
@@ -413,6 +503,71 @@ class MLFileClassifier:
             pass
 
         return info
+
+    @staticmethod
+    def validate_model(model_path):
+        """
+        Validate that a .pkl file has the correct structure for this app.
+
+        Checks that the file can be loaded, contains the required keys,
+        and that the model accepts 340-feature input vectors.
+
+        Args:
+            model_path: Path to the .pkl model file
+
+        Returns:
+            dict with keys:
+                valid (bool): Whether the model is valid
+                error (str|None): Error message if invalid
+                info (dict|None): Model metadata if valid
+        """
+        if not os.path.exists(model_path):
+            return {"valid": False, "error": "File not found", "info": None}
+
+        try:
+            with open(model_path, 'rb') as f:
+                data = pickle.load(f)
+        except Exception as e:
+            return {"valid": False, "error": f"Cannot load pickle file: {e}", "info": None}
+
+        if not isinstance(data, dict):
+            return {"valid": False, "error": "Model file must contain a dictionary", "info": None}
+
+        model = data.get('model')
+        label_encoder = data.get('label_encoder')
+
+        if model is None:
+            return {"valid": False, "error": "Missing 'model' key in model file", "info": None}
+
+        if label_encoder is None:
+            return {"valid": False, "error": "Missing 'label_encoder' key in model file", "info": None}
+
+        if not hasattr(label_encoder, 'classes_'):
+            return {"valid": False, "error": "Invalid label_encoder: missing classes_", "info": None}
+
+        # Test that the model accepts 340-feature input
+        try:
+            import numpy as np
+            test_input = np.zeros((1, 340))
+            model.predict_proba(test_input)
+        except Exception as e:
+            return {
+                "valid": False,
+                "error": f"Model incompatible with 340-feature input: {e}",
+                "info": None
+            }
+
+        # Extract metadata
+        training_info = data.get('training_info', {})
+        info = {
+            "num_classes": len(label_encoder.classes_),
+            "classes": list(label_encoder.classes_),
+            "cv_accuracy": training_info.get('cv_accuracy'),
+            "num_samples": training_info.get('num_samples'),
+            "feature_count": len(data.get('feature_names', [])) or 340,
+        }
+
+        return {"valid": True, "error": None, "info": info}
 
 
 def _get_timestamp():
