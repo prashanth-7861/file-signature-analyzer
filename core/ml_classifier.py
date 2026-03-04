@@ -231,7 +231,7 @@ class MLFileClassifier:
                     bigrams[(data[i], data[i + 1])] += 1
                 # Get top 64 most common bigrams, normalized
                 top_bigrams = bigrams.most_common(64)
-                bigram_total = sum(bigrams.values())
+                bigram_total = sum(bigrams.values()) or 1
                 bigram_features = [count / bigram_total for _, count in top_bigrams]
                 # Pad to exactly 64 if fewer found
                 bigram_features.extend([0.0] * (64 - len(bigram_features)))
@@ -249,11 +249,14 @@ class MLFileClassifier:
 
             # === Feature Group 6: Statistical features (2 features) ===
             byte_values = list(data[:min(1024, len(data))])
-            mean_val = sum(byte_values) / len(byte_values)
-            variance = sum((b - mean_val) ** 2 for b in byte_values) / len(byte_values)
-            std_val = math.sqrt(variance)
-            features.append(mean_val / 255.0)
-            features.append(std_val / 128.0)
+            if not byte_values:
+                features.extend([0.0, 0.0])
+            else:
+                mean_val = sum(byte_values) / len(byte_values)
+                variance = sum((b - mean_val) ** 2 for b in byte_values) / len(byte_values)
+                std_val = math.sqrt(variance)
+                features.append(mean_val / 255.0)
+                features.append(std_val / 128.0)
 
         except Exception as e:
             print(f"ML Feature extraction error: {e}")
@@ -294,7 +297,7 @@ class MLFileClassifier:
             # Create sorted predictions
             predictions = []
             for cls, prob in zip(classes, probabilities):
-                confidence = round(prob * 100, 1)
+                confidence = round(float(prob) * 100, 1)
                 ext = self.TYPE_TO_EXT.get(cls, "")
                 predictions.append((cls, confidence, ext))
 

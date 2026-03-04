@@ -315,8 +315,8 @@ def identify_file_type(file_path, signatures, use_ml=True):
                             "extension": pred_ext,
                             "all_extensions": [pred_ext] if pred_ext else [],
                             "hex_signature": "",
-                            "priority": int(pred_confidence * 5),  # Scale to comparable range
-                            "confidence": pred_confidence,
+                            "priority": int(float(pred_confidence) * 5),  # Scale to comparable range
+                            "confidence": float(pred_confidence),
                             "source": "ml_classifier"
                         })
         except (ImportError, Exception):

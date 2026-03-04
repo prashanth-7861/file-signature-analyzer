@@ -1609,7 +1609,7 @@ class FileAnalyzerApp(QMainWindow):
 
             # Update confidence bar
             if hasattr(self, 'confidence_bar'):
-                self.confidence_bar.setValue(min(confidence, 100))
+                self.confidence_bar.setValue(int(min(confidence, 100)))
 
             # Update entropy label
             if hasattr(self, 'entropy_label'):
@@ -3728,7 +3728,7 @@ class FileAnalyzerApp(QMainWindow):
 
     def update_ml_tab(self, file_path, file_type, entropy, confidence, ml_predictions):
         """Update the ML Insights tab with analysis results."""
-        self.ml_confidence_bar.setValue(min(confidence, 100))
+        self.ml_confidence_bar.setValue(int(min(confidence, 100)))
 
         color = "#4CAF50" if entropy < 4 else "#FF9800" if entropy < 7 else "#f44336"
         self.ml_entropy_label.setText(f"Entropy: {entropy:.3f}")
