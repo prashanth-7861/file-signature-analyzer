@@ -72,6 +72,7 @@ from core.file_analyzer import identify_file_type, calculate_entropy
 from core.batch_processor import BatchFileProcessor
 from core.metadata_extractor import MetadataExtractor
 from core.ml_classifier import MLFileClassifier
+from core.model_registry import ModelRegistry
 
 # Application version
 APP_VERSION = "2.0.0"
@@ -94,9 +95,25 @@ class FileAnalyzerApp(QMainWindow):
         except Exception:
             self.ml_classifier = None
 
+        # Initialize model registry
+        try:
+            self.model_registry = ModelRegistry()
+            # Load active model from registry if available
+            active_path = self.model_registry.get_active_model_path()
+            if active_path and os.path.exists(active_path):
+                if self.ml_classifier:
+                    self.ml_classifier.load_model(active_path)
+                else:
+                    self.ml_classifier = MLFileClassifier(model_path=active_path)
+        except Exception:
+            self.model_registry = None
+
         self.initUI()
         self.load_signatures()
         self.update_recent_files_menu()
+
+        # Background check for model updates on startup
+        self._start_update_check()
 
     def dragEnterEvent(self, event):
         if event.mimeData().hasUrls():
@@ -422,10 +439,30 @@ class FileAnalyzerApp(QMainWindow):
 
         tools_menu.addSeparator()
 
-        # ML Training
-        ml_train_action = QAction("ML Training", self)
+        # ML Model submenu
+        ml_menu = tools_menu.addMenu("ML Model")
+
+        ml_train_action = QAction("Train Model...", self)
         ml_train_action.triggered.connect(self.train_ml_model)
-        tools_menu.addAction(ml_train_action)
+        ml_menu.addAction(ml_train_action)
+
+        ml_load_action = QAction("Load Model...", self)
+        ml_load_action.triggered.connect(self.load_ml_model)
+        ml_menu.addAction(ml_load_action)
+
+        ml_export_action = QAction("Export Model...", self)
+        ml_export_action.triggered.connect(self.export_ml_model)
+        ml_menu.addAction(ml_export_action)
+
+        ml_menu.addSeparator()
+
+        ml_check_update_action = QAction("Check for Updates...", self)
+        ml_check_update_action.triggered.connect(self.check_model_updates)
+        ml_menu.addAction(ml_check_update_action)
+
+        ml_upload_action = QAction("Upload Model to GitHub...", self)
+        ml_upload_action.triggered.connect(self.upload_model_to_github)
+        ml_menu.addAction(ml_upload_action)
 
         # File Comparison
         file_compare_action = QAction("File Comparison", self)
@@ -3456,7 +3493,13 @@ class FileAnalyzerApp(QMainWindow):
 
         if self.ml_classifier and self.ml_classifier.is_model_loaded():
             info = self.ml_classifier.get_model_info()
-            self.ml_status_label.setText(f"Model: Loaded ({info.get('n_classes', '?')} classes)")
+            active_name = ""
+            if self.model_registry:
+                active_info = self.model_registry.get_active_model_info()
+                if active_info:
+                    active_name = f" [{active_info.get('name', '')}]"
+            self.ml_status_label.setText(
+                f"Model: Loaded ({info.get('num_classes', info.get('n_classes', '?'))} classes){active_name}")
 
         layout.addWidget(status_group)
 
@@ -3491,20 +3534,54 @@ class FileAnalyzerApp(QMainWindow):
 
         layout.addWidget(pred_group)
 
-        # Action buttons
-        btn_layout = QHBoxLayout()
+        # Action buttons - row 1
+        btn_layout1 = QHBoxLayout()
 
         train_btn = QPushButton("Train Model")
         train_btn.setStyleSheet("background-color: #2196F3; color: white; font-weight: bold;")
         train_btn.clicked.connect(self.train_ml_model)
-        btn_layout.addWidget(train_btn)
+        btn_layout1.addWidget(train_btn)
 
         correct_btn = QPushButton("Record Correction")
         correct_btn.setToolTip("Record a correction if the ML prediction was wrong")
         correct_btn.clicked.connect(self.record_ml_correction)
-        btn_layout.addWidget(correct_btn)
+        btn_layout1.addWidget(correct_btn)
 
-        layout.addLayout(btn_layout)
+        layout.addLayout(btn_layout1)
+
+        # Action buttons - row 2
+        btn_layout2 = QHBoxLayout()
+
+        load_btn = QPushButton("Load Model")
+        load_btn.setStyleSheet("background-color: #FF9800; color: white; font-weight: bold;")
+        load_btn.setToolTip("Import a trained model (.pkl file)")
+        load_btn.clicked.connect(self.load_ml_model)
+        btn_layout2.addWidget(load_btn)
+
+        export_btn = QPushButton("Export Model")
+        export_btn.setStyleSheet("background-color: #4CAF50; color: white; font-weight: bold;")
+        export_btn.setToolTip("Export the current model to a .pkl file")
+        export_btn.clicked.connect(self.export_ml_model)
+        btn_layout2.addWidget(export_btn)
+
+        layout.addLayout(btn_layout2)
+
+        # Action buttons - row 3 (GitHub)
+        btn_layout3 = QHBoxLayout()
+
+        update_btn = QPushButton("Check for Updates")
+        update_btn.setStyleSheet("background-color: #9C27B0; color: white; font-weight: bold;")
+        update_btn.setToolTip("Check GitHub for a newer model version")
+        update_btn.clicked.connect(self.check_model_updates)
+        btn_layout3.addWidget(update_btn)
+
+        upload_btn = QPushButton("Upload to GitHub")
+        upload_btn.setStyleSheet("background-color: #673AB7; color: white; font-weight: bold;")
+        upload_btn.setToolTip("Upload the current model to GitHub Releases")
+        upload_btn.clicked.connect(self.upload_model_to_github)
+        btn_layout3.addWidget(upload_btn)
+
+        layout.addLayout(btn_layout3)
         layout.addStretch()
 
         self.ml_tab.setLayout(layout)
@@ -3670,42 +3747,147 @@ class FileAnalyzerApp(QMainWindow):
     def train_ml_model(self):
         """Train the ML model from a directory of labeled files."""
         train_dir = QFileDialog.getExistingDirectory(
-            self, "Select Training Data Directory",
+            self, "Select Training Data Directory\n\n"
+            "Organize as subfolders named by file type:\n"
+            "  training_dir/JPEG Image/file1.jpg\n"
+            "  training_dir/PNG Image/file1.png",
         )
         if not train_dir:
             return
 
         if not self.ml_classifier:
-            QMessageBox.warning(self, "Error", "ML classifier not available.")
-            return
+            self.ml_classifier = MLFileClassifier()
 
-        # Collect training data (subfolder names are labels)
-        training_files = []
-        labels = []
+        # Count files to validate before training
+        file_count = 0
+        type_count = 0
         for label_dir in os.listdir(train_dir):
             label_path = os.path.join(train_dir, label_dir)
             if os.path.isdir(label_path):
+                type_count += 1
                 for fname in os.listdir(label_path):
-                    fpath = os.path.join(label_path, fname)
-                    if os.path.isfile(fpath):
-                        training_files.append(fpath)
-                        labels.append(label_dir)
+                    if os.path.isfile(os.path.join(label_path, fname)):
+                        file_count += 1
 
-        if len(training_files) < 5:
+        if file_count < 10 or type_count < 2:
             QMessageBox.warning(self, "Insufficient Data",
-                "Need at least 5 labeled files. Organize training data as:\n"
+                f"Found {file_count} files in {type_count} type folders.\n"
+                "Need at least 10 files across 2+ types.\n\n"
+                "Organize training data as:\n"
                 "training_dir/\n  JPEG Image/\n    file1.jpg\n  PNG Image/\n    file2.png")
             return
 
+        QApplication.setOverrideCursor(Qt.WaitCursor)
         try:
-            accuracy = self.ml_classifier.train(training_files, labels)
-            info = self.ml_classifier.get_model_info()
-            self.ml_status_label.setText(
-                f"Model: Trained ({info.get('n_classes', '?')} classes, accuracy: {accuracy:.1%})")
-            QMessageBox.information(self, "Training Complete",
-                f"Model trained on {len(training_files)} files with {accuracy:.1%} accuracy.")
+            result = self.ml_classifier.train(train_dir)
+            QApplication.restoreOverrideCursor()
+
+            if result.get("success"):
+                # Register trained model in registry
+                if self.model_registry:
+                    self.model_registry.register_model(result["model_path"], source_type="trained")
+
+                self.ml_status_label.setText(
+                    f"Model: Trained ({result['num_classes']} classes, "
+                    f"accuracy: {result.get('cv_accuracy', '?')}%)")
+                QMessageBox.information(self, "Training Complete",
+                    f"Model trained and registered!\n\n"
+                    f"Samples: {result['num_samples']}\n"
+                    f"Classes: {result['num_classes']}\n"
+                    f"Cross-validation accuracy: {result.get('cv_accuracy', 'N/A')}%\n"
+                    f"Skipped files: {result.get('skipped_files', 0)}\n"
+                    f"Model saved to: {result['model_path']}")
+            else:
+                QMessageBox.critical(self, "Training Failed", result.get("error", "Unknown error"))
         except Exception as e:
-            QMessageBox.critical(self, "Training Error", f"Failed to train model: {str(e)}")
+            QApplication.restoreOverrideCursor()
+            QMessageBox.critical(self, "Training Error", f"Failed to train model:\n{str(e)}")
+
+    def load_ml_model(self):
+        """Load a pre-trained ML model from a .pkl file."""
+        file_path, _ = QFileDialog.getOpenFileName(
+            self, "Select ML Model File",
+            "", "Model Files (*.pkl);;All Files (*)"
+        )
+        if not file_path:
+            return
+
+        # Validate model before loading
+        QApplication.setOverrideCursor(Qt.WaitCursor)
+        validation = MLFileClassifier.validate_model(file_path)
+        QApplication.restoreOverrideCursor()
+
+        if not validation["valid"]:
+            QMessageBox.critical(self, "Invalid Model",
+                f"This model file is not compatible:\n\n{validation['error']}\n\n"
+                "The model must have:\n"
+                "- 'model' and 'label_encoder' keys\n"
+                "- Support for 340-feature input vectors")
+            return
+
+        if not self.ml_classifier:
+            self.ml_classifier = MLFileClassifier.__new__(MLFileClassifier)
+            self.ml_classifier.model = None
+            self.ml_classifier.label_encoder = None
+            self.ml_classifier.feature_names = []
+            self.ml_classifier.model_path = MLFileClassifier.MODEL_PATH
+
+        QApplication.setOverrideCursor(Qt.WaitCursor)
+        result = self.ml_classifier.load_model(file_path)
+        QApplication.restoreOverrideCursor()
+
+        if result.get("success"):
+            # Register in model registry
+            if self.model_registry:
+                self.model_registry.register_model(file_path, source_type="loaded")
+
+            info = validation["info"]
+            self.ml_status_label.setText(
+                f"Model: Loaded ({result['num_classes']} classes)")
+            details = (
+                f"Model loaded and registered!\n\n"
+                f"File: {os.path.basename(file_path)}\n"
+                f"Classes: {result['num_classes']}\n"
+            )
+            if result.get('cv_accuracy'):
+                details += f"Training accuracy: {result['cv_accuracy']}%\n"
+            if result.get('num_samples'):
+                details += f"Trained on: {result['num_samples']} samples\n"
+            details += f"\nSupported types:\n"
+            for cls in sorted(result.get('classes', []))[:15]:
+                details += f"  - {cls}\n"
+            if len(result.get('classes', [])) > 15:
+                details += f"  ... and {len(result['classes']) - 15} more"
+            QMessageBox.information(self, "Model Loaded", details)
+        else:
+            QMessageBox.critical(self, "Load Failed",
+                f"Could not load model:\n{result.get('error', 'Unknown error')}")
+
+    def export_ml_model(self):
+        """Export the current ML model to a .pkl file."""
+        if not self.ml_classifier or not self.ml_classifier.is_model_loaded():
+            QMessageBox.warning(self, "No Model",
+                "No ML model is currently loaded.\n"
+                "Train or load a model first.")
+            return
+
+        file_path, _ = QFileDialog.getSaveFileName(
+            self, "Export ML Model",
+            "ml_model.pkl", "Model Files (*.pkl);;All Files (*)"
+        )
+        if not file_path:
+            return
+
+        QApplication.setOverrideCursor(Qt.WaitCursor)
+        result = self.ml_classifier.export_model(file_path)
+        QApplication.restoreOverrideCursor()
+
+        if result.get("success"):
+            QMessageBox.information(self, "Model Exported",
+                f"Model exported to:\n{result['model_path']}")
+        else:
+            QMessageBox.critical(self, "Export Failed",
+                f"Could not export model:\n{result.get('error', 'Unknown error')}")
 
     def record_ml_correction(self):
         """Record a correction for ML learning."""
@@ -3728,6 +3910,120 @@ class FileAnalyzerApp(QMainWindow):
                 self.current_results["file_path"], correct_type)
             QMessageBox.information(self, "Correction Recorded",
                 f"Recorded correction: {correct_type}")
+
+    def _start_update_check(self):
+        """Start a background thread to check for model updates."""
+        if not self.model_registry:
+            return
+
+        from PyQt5.QtCore import QThread, pyqtSignal
+
+        class UpdateCheckThread(QThread):
+            result_ready = pyqtSignal(dict)
+
+            def __init__(self, registry):
+                super().__init__()
+                self.registry = registry
+
+            def run(self):
+                result = self.registry.check_for_update()
+                self.result_ready.emit(result)
+
+        self._update_thread = UpdateCheckThread(self.model_registry)
+        self._update_thread.result_ready.connect(self._on_update_check_complete)
+        self._update_thread.start()
+
+    def _on_update_check_complete(self, result):
+        """Handle background update check result."""
+        if result.get("available"):
+            tag = result.get("tag", "")
+            self.statusBar().showMessage(
+                f"New ML model available ({tag}) - use Tools > ML Model > Check for Updates", 10000)
+
+    def check_model_updates(self):
+        """Check GitHub Releases for a newer model and offer to download."""
+        if not self.model_registry:
+            QMessageBox.warning(self, "Error", "Model registry not available.")
+            return
+
+        QApplication.setOverrideCursor(Qt.WaitCursor)
+        result = self.model_registry.check_for_update()
+        QApplication.restoreOverrideCursor()
+
+        if result.get("available"):
+            tag = result["tag"]
+            name = result.get("asset_name", "ml_model.pkl")
+            size_mb = result.get("size", 0) / (1024 * 1024)
+            release_name = result.get("release_name", tag)
+
+            reply = QMessageBox.question(self, "Model Update Available",
+                f"A newer model is available on GitHub!\n\n"
+                f"Release: {release_name}\n"
+                f"Tag: {tag}\n"
+                f"File: {name}\n"
+                f"Size: {size_mb:.1f} MB\n\n"
+                f"Download and install?",
+                QMessageBox.Yes | QMessageBox.No)
+
+            if reply == QMessageBox.Yes:
+                QApplication.setOverrideCursor(Qt.WaitCursor)
+                dl_result = self.model_registry.download_release_model(
+                    result["download_url"], result["asset_name"], result["tag"])
+                QApplication.restoreOverrideCursor()
+
+                if dl_result.get("success"):
+                    # Reload the model
+                    active_path = self.model_registry.get_active_model_path()
+                    if active_path and self.ml_classifier:
+                        self.ml_classifier.load_model(active_path)
+                    elif active_path:
+                        self.ml_classifier = MLFileClassifier(model_path=active_path)
+
+                    self.ml_status_label.setText(
+                        f"Model: Updated ({tag})")
+                    QMessageBox.information(self, "Update Complete",
+                        f"Model updated to {tag}!\n"
+                        f"The new model is now active.")
+                else:
+                    QMessageBox.critical(self, "Download Failed",
+                        f"Could not download model:\n{dl_result.get('error', 'Unknown error')}")
+        else:
+            reason = result.get("reason", "No updates available")
+            QMessageBox.information(self, "No Updates", reason)
+
+    def upload_model_to_github(self):
+        """Upload the current model to GitHub as a release."""
+        if not self.model_registry:
+            QMessageBox.warning(self, "Error", "Model registry not available.")
+            return
+
+        if not self.ml_classifier or not self.ml_classifier.is_model_loaded():
+            QMessageBox.warning(self, "No Model",
+                "No ML model is currently loaded.\nTrain or load a model first.")
+            return
+
+        reply = QMessageBox.question(self, "Upload to GitHub",
+            "Upload the current ML model to GitHub Releases?\n\n"
+            "This will create a new release on the\n"
+            "file-signature-analyzer repository,\n"
+            "making the model available to all users.",
+            QMessageBox.Yes | QMessageBox.No)
+
+        if reply != QMessageBox.Yes:
+            return
+
+        QApplication.setOverrideCursor(Qt.WaitCursor)
+        result = self.model_registry.upload_model_to_release()
+        QApplication.restoreOverrideCursor()
+
+        if result.get("success"):
+            QMessageBox.information(self, "Upload Complete",
+                f"Model uploaded to GitHub!\n\n"
+                f"Release tag: {result.get('tag', '?')}\n"
+                f"URL: {result.get('release_url', '')}")
+        else:
+            QMessageBox.critical(self, "Upload Failed",
+                f"Could not upload model:\n{result.get('error', 'Unknown error')}")
 
     def format_file_size(self, size_in_bytes):
         """Format file size in human-readable format."""

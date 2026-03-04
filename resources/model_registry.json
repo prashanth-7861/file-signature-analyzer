@@ -1,0 +1,20 @@
+{
+  "version": 1,
+  "active_model_id": "08a78f87b2b1c83b",
+  "models": [
+    {
+      "id": "08a78f87b2b1c83b",
+      "name": "ml_model_20260302_214521",
+      "filename": "ml_model_20260302_214521.pkl",
+      "sha256": "a057f05becd7b0a1663c7f6e928ea085cb43156a2cf10555993e99202177f9cf",
+      "date_added": "2026-03-02T21:45:21.726670",
+      "source": "legacy",
+      "num_classes": 31,
+      "cv_accuracy": 99.7,
+      "num_samples": 620,
+      "github_release_tag": "test-upload-v1",
+      "file_size_bytes": 3118258
+    }
+  ],
+  "last_update_check": "2026-03-02T21:46:37.360843"
+}
