@@ -74,6 +74,16 @@ from core.metadata_extractor import MetadataExtractor
 from core.ml_classifier import MLFileClassifier
 from core.model_registry import ModelRegistry
 
+# Forensic modules (Phase 2)
+try:
+    from core.forensic_logger import ForensicAuditLogger, ActionType
+    from core.evidence_integrity import EvidenceIntegrityVerifier
+    from core.case_manager import CaseManager
+    from core.safety_shield import SafetyShield
+    HAS_FORENSIC = True
+except ImportError:
+    HAS_FORENSIC = False
+
 # Application version
 APP_VERSION = "2.0.0"
 
@@ -107,6 +117,30 @@ class FileAnalyzerApp(QMainWindow):
                     self.ml_classifier = MLFileClassifier(model_path=active_path)
         except Exception:
             self.model_registry = None
+
+        # Initialize forensic subsystem
+        self.forensic_logger = None
+        self.evidence_verifier = None
+        self.case_manager = None
+        self.safety_shield = None
+        self.forensic_session_active = False
+
+        if HAS_FORENSIC:
+            try:
+                self.forensic_logger = ForensicAuditLogger(log_dir="./audit_logs")
+                self.evidence_verifier = EvidenceIntegrityVerifier(
+                    audit_logger=self.forensic_logger
+                )
+                self.case_manager = CaseManager(
+                    cases_root="./cases",
+                    audit_logger=self.forensic_logger
+                )
+                self.safety_shield = SafetyShield(
+                    audit_logger=self.forensic_logger,
+                    evidence_integrity=self.evidence_verifier
+                )
+            except Exception as e:
+                print(f"Forensic subsystem init error: {e}")
 
         self.initUI()
         self.load_signatures()
@@ -170,6 +204,11 @@ class FileAnalyzerApp(QMainWindow):
         self.compare_tab = QWidget()
         self.tabs.addTab(self.compare_tab, "File Comparison")
         self.setup_compare_tab()
+
+        # Tab 6: Forensic Analysis
+        self.forensic_tab = QWidget()
+        self.tabs.addTab(self.forensic_tab, "Forensic Analysis")
+        self.setup_forensic_tab()
 
     def check_module_availability(self):
         """
@@ -4024,6 +4063,606 @@ class FileAnalyzerApp(QMainWindow):
         else:
             QMessageBox.critical(self, "Upload Failed",
                 f"Could not upload model:\n{result.get('error', 'Unknown error')}")
+
+    def setup_forensic_tab(self):
+        """Set up the Forensic Analysis tab with session management, safety shield, and case management."""
+        layout = QVBoxLayout(self.forensic_tab)
+
+        # === Session Control Bar ===
+        session_group = QGroupBox("Forensic Session")
+        session_layout = QHBoxLayout()
+
+        self.operator_id_edit = QLineEdit()
+        self.operator_id_edit.setPlaceholderText("Operator ID (e.g., analyst-1)")
+        session_layout.addWidget(QLabel("Operator:"))
+        session_layout.addWidget(self.operator_id_edit)
+
+        self.start_session_btn = QPushButton("Start Session")
+        self.start_session_btn.setStyleSheet("background-color: #4CAF50; color: white; font-weight: bold; padding: 6px 16px;")
+        self.start_session_btn.clicked.connect(self.start_forensic_session)
+        session_layout.addWidget(self.start_session_btn)
+
+        self.end_session_btn = QPushButton("End Session")
+        self.end_session_btn.setStyleSheet("background-color: #f44336; color: white; font-weight: bold; padding: 6px 16px;")
+        self.end_session_btn.clicked.connect(self.end_forensic_session)
+        self.end_session_btn.setEnabled(False)
+        session_layout.addWidget(self.end_session_btn)
+
+        self.session_status_label = QLabel("Session: Inactive")
+        self.session_status_label.setStyleSheet("color: #888; font-weight: bold;")
+        session_layout.addWidget(self.session_status_label)
+
+        session_group.setLayout(session_layout)
+        layout.addWidget(session_group)
+
+        # === Forensic Sub-Tabs ===
+        forensic_subtabs = QTabWidget()
+
+        # --- Sub-Tab 1: Safety Shield ---
+        safety_widget = QWidget()
+        safety_layout = QVBoxLayout(safety_widget)
+
+        # Scan controls
+        scan_bar = QHBoxLayout()
+        self.forensic_file_edit = QLineEdit()
+        self.forensic_file_edit.setPlaceholderText("Select file for forensic scan...")
+        scan_bar.addWidget(self.forensic_file_edit)
+
+        browse_forensic_btn = QPushButton("Browse")
+        browse_forensic_btn.clicked.connect(self.browse_forensic_file)
+        scan_bar.addWidget(browse_forensic_btn)
+
+        self.scan_btn = QPushButton("Run Safety Scan")
+        self.scan_btn.setStyleSheet("background-color: #FF9800; color: white; font-weight: bold; padding: 6px 16px;")
+        self.scan_btn.clicked.connect(self.run_safety_scan)
+        scan_bar.addWidget(self.scan_btn)
+
+        safety_layout.addLayout(scan_bar)
+
+        # Risk summary
+        risk_bar = QHBoxLayout()
+        self.risk_level_label = QLabel("Risk Level: --")
+        self.risk_level_label.setStyleSheet("font-size: 16px; font-weight: bold;")
+        risk_bar.addWidget(self.risk_level_label)
+
+        self.quarantine_btn = QPushButton("Quarantine File")
+        self.quarantine_btn.setStyleSheet("background-color: #9C27B0; color: white; font-weight: bold; padding: 6px 12px;")
+        self.quarantine_btn.clicked.connect(self.quarantine_current_file)
+        self.quarantine_btn.setEnabled(False)
+        risk_bar.addWidget(self.quarantine_btn)
+
+        safety_layout.addLayout(risk_bar)
+
+        # Flags table
+        self.safety_flags_table = QTableWidget()
+        self.safety_flags_table.setColumnCount(4)
+        self.safety_flags_table.setHorizontalHeaderLabels(["Severity", "Check", "Description", "Details"])
+        self.safety_flags_table.horizontalHeader().setSectionResizeMode(QHeaderView.Stretch)
+        self.safety_flags_table.setAlternatingRowColors(True)
+        safety_layout.addWidget(self.safety_flags_table)
+
+        forensic_subtabs.addTab(safety_widget, "Safety Shield")
+
+        # --- Sub-Tab 2: Evidence Integrity ---
+        integrity_widget = QWidget()
+        integrity_layout = QVBoxLayout(integrity_widget)
+
+        self.integrity_results = QTextEdit()
+        self.integrity_results.setReadOnly(True)
+        self.integrity_results.setFont(QFont("Consolas", 10))
+        integrity_layout.addWidget(QLabel("Evidence Integrity Verification Results:"))
+        integrity_layout.addWidget(self.integrity_results)
+
+        cert_bar = QHBoxLayout()
+        self.gen_cert_btn = QPushButton("Generate Integrity Certificate")
+        self.gen_cert_btn.setStyleSheet("background-color: #2196F3; color: white; font-weight: bold; padding: 6px 16px;")
+        self.gen_cert_btn.clicked.connect(self.generate_integrity_certificate)
+        self.gen_cert_btn.setEnabled(False)
+        cert_bar.addWidget(self.gen_cert_btn)
+
+        self.export_audit_btn = QPushButton("Export Audit Log (HTML)")
+        self.export_audit_btn.setStyleSheet("background-color: #607D8B; color: white; font-weight: bold; padding: 6px 16px;")
+        self.export_audit_btn.clicked.connect(self.export_audit_html)
+        cert_bar.addWidget(self.export_audit_btn)
+
+        integrity_layout.addLayout(cert_bar)
+        forensic_subtabs.addTab(integrity_widget, "Evidence Integrity")
+
+        # --- Sub-Tab 3: Case Management ---
+        case_widget = QWidget()
+        case_layout = QVBoxLayout(case_widget)
+
+        # Create case bar
+        create_case_bar = QHBoxLayout()
+
+        self.case_id_edit = QLineEdit()
+        self.case_id_edit.setPlaceholderText("Case ID (e.g., CASE-2025-0042)")
+        create_case_bar.addWidget(self.case_id_edit)
+
+        self.investigator_edit = QLineEdit()
+        self.investigator_edit.setPlaceholderText("Investigator Name")
+        create_case_bar.addWidget(self.investigator_edit)
+
+        self.case_desc_edit = QLineEdit()
+        self.case_desc_edit.setPlaceholderText("Case Description")
+        create_case_bar.addWidget(self.case_desc_edit)
+
+        self.create_case_btn = QPushButton("Create Case")
+        self.create_case_btn.setStyleSheet("background-color: #4CAF50; color: white; font-weight: bold; padding: 6px 16px;")
+        self.create_case_btn.clicked.connect(self.create_forensic_case)
+        create_case_bar.addWidget(self.create_case_btn)
+
+        case_layout.addLayout(create_case_bar)
+
+        # Active case info
+        self.active_case_label = QLabel("No active case")
+        self.active_case_label.setStyleSheet("font-size: 14px; font-weight: bold; color: #888;")
+        case_layout.addWidget(self.active_case_label)
+
+        # Cases table
+        self.cases_table = QTableWidget()
+        self.cases_table.setColumnCount(5)
+        self.cases_table.setHorizontalHeaderLabels(["Case ID", "Investigator", "Created", "Evidence Count", "Status"])
+        self.cases_table.horizontalHeader().setSectionResizeMode(QHeaderView.Stretch)
+        self.cases_table.setAlternatingRowColors(True)
+        case_layout.addWidget(self.cases_table)
+
+        # Case action buttons
+        case_actions = QHBoxLayout()
+
+        self.open_case_btn = QPushButton("Open Selected Case")
+        self.open_case_btn.clicked.connect(self.open_selected_case)
+        case_actions.addWidget(self.open_case_btn)
+
+        self.add_evidence_btn = QPushButton("Add Current File as Evidence")
+        self.add_evidence_btn.setStyleSheet("background-color: #FF9800; color: white; font-weight: bold;")
+        self.add_evidence_btn.clicked.connect(self.add_file_as_evidence)
+        self.add_evidence_btn.setEnabled(False)
+        case_actions.addWidget(self.add_evidence_btn)
+
+        self.export_case_btn = QPushButton("Export Case")
+        self.export_case_btn.setStyleSheet("background-color: #2196F3; color: white; font-weight: bold;")
+        self.export_case_btn.clicked.connect(self.export_current_case)
+        self.export_case_btn.setEnabled(False)
+        case_actions.addWidget(self.export_case_btn)
+
+        self.close_case_btn = QPushButton("Close Case")
+        self.close_case_btn.setStyleSheet("background-color: #f44336; color: white; font-weight: bold;")
+        self.close_case_btn.clicked.connect(self.close_forensic_case)
+        self.close_case_btn.setEnabled(False)
+        case_actions.addWidget(self.close_case_btn)
+
+        case_layout.addLayout(case_actions)
+
+        # Evidence notes
+        notes_group = QGroupBox("Evidence Notes")
+        notes_layout = QVBoxLayout()
+        self.evidence_notes_edit = QTextEdit()
+        self.evidence_notes_edit.setPlaceholderText("Add notes about the evidence...")
+        self.evidence_notes_edit.setMaximumHeight(100)
+        notes_layout.addWidget(self.evidence_notes_edit)
+
+        add_note_btn = QPushButton("Save Note")
+        add_note_btn.clicked.connect(self.save_evidence_note)
+        notes_layout.addWidget(add_note_btn)
+        notes_group.setLayout(notes_layout)
+        case_layout.addWidget(notes_group)
+
+        forensic_subtabs.addTab(case_widget, "Case Management")
+
+        # --- Sub-Tab 4: Audit Log Viewer ---
+        audit_widget = QWidget()
+        audit_layout = QVBoxLayout(audit_widget)
+
+        self.audit_log_view = QTextEdit()
+        self.audit_log_view.setReadOnly(True)
+        self.audit_log_view.setFont(QFont("Consolas", 9))
+        audit_layout.addWidget(self.audit_log_view)
+
+        audit_actions = QHBoxLayout()
+        refresh_audit_btn = QPushButton("Refresh Log")
+        refresh_audit_btn.clicked.connect(self.refresh_audit_log)
+        audit_actions.addWidget(refresh_audit_btn)
+
+        verify_chain_btn = QPushButton("Verify Chain Integrity")
+        verify_chain_btn.setStyleSheet("background-color: #4CAF50; color: white; font-weight: bold;")
+        verify_chain_btn.clicked.connect(self.verify_audit_chain)
+        audit_actions.addWidget(verify_chain_btn)
+
+        audit_layout.addLayout(audit_actions)
+        forensic_subtabs.addTab(audit_widget, "Audit Log")
+
+        layout.addWidget(forensic_subtabs)
+
+        # Refresh cases list on tab load
+        self.refresh_cases_list()
+
+    # ===================================================================
+    # Forensic Analysis Methods (Phase 2)
+    # ===================================================================
+
+    def start_forensic_session(self):
+        """Start a forensic audit session."""
+        operator = self.operator_id_edit.text().strip()
+        if not operator:
+            QMessageBox.warning(self, "Error", "Please enter an Operator ID.")
+            return
+        if not self.forensic_logger:
+            QMessageBox.warning(self, "Error", "Forensic subsystem not available.")
+            return
+        try:
+            session_id = self.forensic_logger.start_session(operator_id=operator)
+            self.forensic_session_active = True
+            self.session_status_label.setText(f"Session: {session_id[:8]}...")
+            self.session_status_label.setStyleSheet("color: #4CAF50; font-weight: bold;")
+            self.start_session_btn.setEnabled(False)
+            self.end_session_btn.setEnabled(True)
+            self.statusBar().showMessage(f"Forensic session started: {session_id}")
+        except Exception as e:
+            QMessageBox.critical(self, "Session Error", str(e))
+
+    def end_forensic_session(self):
+        """End the current forensic session."""
+        if self.forensic_logger:
+            try:
+                self.forensic_logger.end_session()
+            except Exception:
+                pass
+        self.forensic_session_active = False
+        self.session_status_label.setText("Session: Inactive")
+        self.session_status_label.setStyleSheet("color: #888; font-weight: bold;")
+        self.start_session_btn.setEnabled(True)
+        self.end_session_btn.setEnabled(False)
+        self.statusBar().showMessage("Forensic session ended.")
+
+    def browse_forensic_file(self):
+        """Browse for a file to scan forensically."""
+        file_path, _ = QFileDialog.getOpenFileName(self, "Select File for Forensic Scan")
+        if file_path:
+            self.forensic_file_edit.setText(file_path)
+
+    def run_safety_scan(self):
+        """Run the safety shield scan on the selected file."""
+        file_path = self.forensic_file_edit.text().strip()
+        if not file_path or not os.path.exists(file_path):
+            QMessageBox.warning(self, "Error", "Please select a valid file.")
+            return
+        if not self.safety_shield:
+            QMessageBox.warning(self, "Error", "Safety Shield not available.")
+            return
+
+        try:
+            self.statusBar().showMessage("Running safety scan...")
+            QApplication.processEvents()
+
+            result = self.safety_shield.scan_file(
+                file_path,
+                operator_id=self.operator_id_edit.text().strip() or "anonymous"
+            )
+
+            # Update risk level
+            risk = result.get("overall_risk", "safe")
+            risk_colors = {
+                "safe": "#4CAF50", "info": "#2196F3", "low": "#8BC34A",
+                "medium": "#FF9800", "high": "#f44336", "critical": "#9C27B0"
+            }
+            color = risk_colors.get(risk, "#888")
+            self.risk_level_label.setText(f"Risk Level: {risk.upper()}")
+            self.risk_level_label.setStyleSheet(f"font-size: 16px; font-weight: bold; color: {color};")
+
+            # Populate flags table
+            flags = result.get("flags", [])
+            self.safety_flags_table.setRowCount(0)
+            for flag in flags:
+                row = self.safety_flags_table.rowCount()
+                self.safety_flags_table.insertRow(row)
+
+                severity = flag.get("severity", "info")
+                sev_item = QTableWidgetItem(severity.upper())
+                sev_colors = {"info": "#2196F3", "low": "#8BC34A", "medium": "#FF9800", "high": "#f44336", "critical": "#9C27B0"}
+                sev_item.setForeground(Qt.white)
+                self.safety_flags_table.setItem(row, 0, sev_item)
+                self.safety_flags_table.setItem(row, 1, QTableWidgetItem(flag.get("check", "")))
+                self.safety_flags_table.setItem(row, 2, QTableWidgetItem(flag.get("description", "")))
+                self.safety_flags_table.setItem(row, 3, QTableWidgetItem(str(flag.get("details", ""))))
+
+            # Enable quarantine if risky
+            self.quarantine_btn.setEnabled(risk in ("high", "critical"))
+
+            # Update integrity results
+            if self.evidence_verifier:
+                pre_check = self.evidence_verifier.pre_analysis_check(file_path)
+                hashes = pre_check.get("hashes_before", {})
+                integrity_text = f"Pre-Analysis Integrity Check\n{'='*50}\n"
+                integrity_text += f"File: {os.path.basename(file_path)}\n"
+                integrity_text += f"Size: {os.path.getsize(file_path):,} bytes\n\n"
+                for algo, h in hashes.items():
+                    integrity_text += f"{algo.upper()}: {h}\n"
+                integrity_text += f"\nStatus: {pre_check.get('status', 'unknown')}\n"
+                self.integrity_results.setText(integrity_text)
+                self.gen_cert_btn.setEnabled(True)
+
+            # Log to audit if session active
+            if self.forensic_session_active and self.forensic_logger:
+                try:
+                    self.forensic_logger.log(
+                        ActionType.SAFETY_FLAG,
+                        file_path=file_path,
+                        risk_level=risk,
+                        flags_count=len(flags)
+                    )
+                except Exception:
+                    pass
+
+            if flags:
+                self.statusBar().showMessage(f"Safety scan complete: {len(flags)} flag(s) found — Risk: {risk.upper()}")
+            else:
+                self.statusBar().showMessage("Safety scan complete: No threats detected.")
+
+        except Exception as e:
+            QMessageBox.critical(self, "Scan Error", f"Safety scan failed:\n{str(e)}")
+
+    def quarantine_current_file(self):
+        """Quarantine the currently scanned forensic file."""
+        file_path = self.forensic_file_edit.text().strip()
+        if not file_path or not self.evidence_verifier:
+            return
+        try:
+            case_id = ""
+            if self.case_manager:
+                active = self.case_manager.get_active_case()
+                if active:
+                    case_id = active.get("case_id", "")
+
+            quarantine_path = self.evidence_verifier.quarantine_file(
+                file_path, reason="Safety Shield flagged as high/critical risk", case_id=case_id
+            )
+            QMessageBox.information(self, "Quarantined", f"File quarantined to:\n{quarantine_path}")
+            self.statusBar().showMessage(f"File quarantined successfully.")
+        except Exception as e:
+            QMessageBox.critical(self, "Quarantine Error", str(e))
+
+    def generate_integrity_certificate(self):
+        """Generate an integrity certificate for the last scanned file."""
+        file_path = self.forensic_file_edit.text().strip()
+        if not file_path or not self.evidence_verifier:
+            return
+        try:
+            save_path, _ = QFileDialog.getSaveFileName(
+                self, "Save Integrity Certificate",
+                f"integrity_cert_{os.path.basename(file_path)}.html",
+                "HTML Files (*.html);;JSON Files (*.json)"
+            )
+            if save_path:
+                fmt = "html" if save_path.endswith(".html") else "json"
+                self.evidence_verifier.generate_integrity_certificate(
+                    file_path, output_path=save_path, output_format=fmt
+                )
+                QMessageBox.information(self, "Certificate Generated", f"Saved to:\n{save_path}")
+        except Exception as e:
+            QMessageBox.critical(self, "Certificate Error", str(e))
+
+    def export_audit_html(self):
+        """Export the forensic audit log as HTML."""
+        if not self.forensic_logger:
+            QMessageBox.warning(self, "Error", "Forensic logger not available.")
+            return
+        try:
+            save_path, _ = QFileDialog.getSaveFileName(
+                self, "Export Audit Log", "audit_report.html", "HTML Files (*.html)"
+            )
+            if save_path:
+                self.forensic_logger.export_as_html(save_path)
+                QMessageBox.information(self, "Exported", f"Audit log exported to:\n{save_path}")
+        except Exception as e:
+            QMessageBox.critical(self, "Export Error", str(e))
+
+    def create_forensic_case(self):
+        """Create a new forensic case."""
+        if not self.case_manager:
+            QMessageBox.warning(self, "Error", "Case manager not available.")
+            return
+        case_id = self.case_id_edit.text().strip()
+        investigator = self.investigator_edit.text().strip()
+        description = self.case_desc_edit.text().strip()
+        if not case_id or not investigator:
+            QMessageBox.warning(self, "Error", "Case ID and Investigator Name are required.")
+            return
+        try:
+            passphrase, ok = QInputDialog.getText(self, "Case Encryption",
+                "Enter passphrase for case encryption (leave empty for none):")
+            if not ok:
+                return
+            self.case_manager.create_case(
+                case_id=case_id,
+                investigator_name=investigator,
+                description=description,
+                passphrase=passphrase
+            )
+            QMessageBox.information(self, "Case Created", f"Case '{case_id}' created successfully.")
+            self.refresh_cases_list()
+            # Auto-open the case
+            self.case_manager.open_case(case_id, passphrase=passphrase)
+            self.active_case_label.setText(f"Active Case: {case_id}")
+            self.active_case_label.setStyleSheet("font-size: 14px; font-weight: bold; color: #4CAF50;")
+            self.add_evidence_btn.setEnabled(True)
+            self.export_case_btn.setEnabled(True)
+            self.close_case_btn.setEnabled(True)
+        except Exception as e:
+            QMessageBox.critical(self, "Case Error", str(e))
+
+    def open_selected_case(self):
+        """Open the case selected in the cases table."""
+        if not self.case_manager:
+            return
+        row = self.cases_table.currentRow()
+        if row < 0:
+            QMessageBox.warning(self, "Error", "Please select a case from the table.")
+            return
+        case_id = self.cases_table.item(row, 0).text()
+        passphrase, ok = QInputDialog.getText(self, "Open Case",
+            f"Enter passphrase for case '{case_id}' (leave empty if none):")
+        if not ok:
+            return
+        try:
+            self.case_manager.open_case(case_id, passphrase=passphrase)
+            self.active_case_label.setText(f"Active Case: {case_id}")
+            self.active_case_label.setStyleSheet("font-size: 14px; font-weight: bold; color: #4CAF50;")
+            self.add_evidence_btn.setEnabled(True)
+            self.export_case_btn.setEnabled(True)
+            self.close_case_btn.setEnabled(True)
+            self.statusBar().showMessage(f"Case '{case_id}' opened.")
+        except Exception as e:
+            QMessageBox.critical(self, "Open Error", str(e))
+
+    def add_file_as_evidence(self):
+        """Add the currently analyzed file as evidence to the active case."""
+        if not self.case_manager or not self.case_manager.get_active_case():
+            QMessageBox.warning(self, "Error", "No active case. Open or create a case first.")
+            return
+
+        # Try forensic file first, then analyzed file
+        file_path = self.forensic_file_edit.text().strip()
+        if not file_path or not os.path.exists(file_path):
+            if self.analyzed_file_path and os.path.exists(self.analyzed_file_path):
+                file_path = self.analyzed_file_path
+            else:
+                QMessageBox.warning(self, "Error", "No file available to add as evidence.")
+                return
+
+        try:
+            category, ok = QInputDialog.getItem(self, "Evidence Category",
+                "Select category:", ["malware", "document", "image", "video", "audio",
+                "archive", "executable", "script", "database", "network_capture",
+                "memory_dump", "disk_image", "log_file", "email", "cryptocurrency",
+                "mobile_data", "iot_data", "cloud_artifact", "other"], 0, False)
+            if not ok:
+                return
+
+            description, ok2 = QInputDialog.getText(self, "Evidence Description",
+                "Enter description for this evidence:")
+            if not ok2:
+                return
+
+            evidence_id = self.case_manager.add_evidence(
+                file_path=file_path,
+                category=category,
+                description=description or f"Evidence from {os.path.basename(file_path)}",
+                operator_id=self.operator_id_edit.text().strip() or "anonymous"
+            )
+            QMessageBox.information(self, "Evidence Added",
+                f"File added as evidence.\nEvidence ID: {evidence_id}")
+            self.statusBar().showMessage(f"Evidence added: {evidence_id}")
+        except Exception as e:
+            QMessageBox.critical(self, "Evidence Error", str(e))
+
+    def export_current_case(self):
+        """Export the currently active case."""
+        if not self.case_manager or not self.case_manager.get_active_case():
+            return
+        try:
+            export_dir = QFileDialog.getExistingDirectory(self, "Select Export Directory")
+            if export_dir:
+                result = self.case_manager.export_case(export_dir)
+                QMessageBox.information(self, "Case Exported", f"Case exported to:\n{result}")
+        except Exception as e:
+            QMessageBox.critical(self, "Export Error", str(e))
+
+    def close_forensic_case(self):
+        """Close the currently active case."""
+        if not self.case_manager:
+            return
+        try:
+            self.case_manager.close_case()
+            self.active_case_label.setText("No active case")
+            self.active_case_label.setStyleSheet("font-size: 14px; font-weight: bold; color: #888;")
+            self.add_evidence_btn.setEnabled(False)
+            self.export_case_btn.setEnabled(False)
+            self.close_case_btn.setEnabled(False)
+            self.statusBar().showMessage("Case closed.")
+        except Exception as e:
+            QMessageBox.critical(self, "Close Error", str(e))
+
+    def save_evidence_note(self):
+        """Save a note for the current evidence."""
+        if not self.case_manager or not self.case_manager.get_active_case():
+            QMessageBox.warning(self, "Error", "No active case.")
+            return
+        note_text = self.evidence_notes_edit.toPlainText().strip()
+        if not note_text:
+            return
+        try:
+            # Get the most recent evidence ID from the case
+            evidence_list = self.case_manager.get_evidence_list()
+            if not evidence_list:
+                QMessageBox.warning(self, "Error", "No evidence in the current case.")
+                return
+            evidence_id = evidence_list[-1].get("evidence_id", "")
+            self.case_manager.add_note(
+                evidence_id=evidence_id,
+                content=note_text,
+                operator_id=self.operator_id_edit.text().strip() or "anonymous"
+            )
+            self.evidence_notes_edit.clear()
+            self.statusBar().showMessage("Note saved.")
+        except Exception as e:
+            QMessageBox.critical(self, "Note Error", str(e))
+
+    def refresh_cases_list(self):
+        """Refresh the cases table from disk."""
+        if not self.case_manager:
+            return
+        try:
+            cases = self.case_manager.list_cases()
+            self.cases_table.setRowCount(0)
+            for case in cases:
+                row = self.cases_table.rowCount()
+                self.cases_table.insertRow(row)
+                self.cases_table.setItem(row, 0, QTableWidgetItem(case.get("case_id", "")))
+                self.cases_table.setItem(row, 1, QTableWidgetItem(case.get("investigator_name", "")))
+                self.cases_table.setItem(row, 2, QTableWidgetItem(case.get("created_at", "")))
+                self.cases_table.setItem(row, 3, QTableWidgetItem(str(case.get("evidence_count", 0))))
+                self.cases_table.setItem(row, 4, QTableWidgetItem(case.get("status", "open")))
+        except Exception:
+            pass
+
+    def refresh_audit_log(self):
+        """Refresh the audit log viewer."""
+        if not self.forensic_logger:
+            self.audit_log_view.setText("Forensic logger not available.")
+            return
+        try:
+            entries = self.forensic_logger.get_session_entries()
+            if not entries:
+                self.audit_log_view.setText("No audit entries in current session.\nStart a session first.")
+                return
+            lines = []
+            for entry in entries:
+                ts = entry.get("timestamp", "")
+                action = entry.get("action_type", "")
+                data = entry.get("data", {})
+                chain = entry.get("entry_hash", "")[:12]
+                lines.append(f"[{ts}] {action} | chain:{chain}... | {json.dumps(data, default=str)}")
+            self.audit_log_view.setText("\n".join(lines))
+        except Exception as e:
+            self.audit_log_view.setText(f"Error loading audit log: {e}")
+
+    def verify_audit_chain(self):
+        """Verify the tamper-evident hash chain of the audit log."""
+        if not self.forensic_logger:
+            return
+        try:
+            is_valid, last_ok, error = self.forensic_logger.verify_chain_integrity()
+            if is_valid:
+                QMessageBox.information(self, "Chain Integrity",
+                    "Audit chain is INTACT.\nNo tampering detected.")
+                self.statusBar().showMessage("Audit chain verified: INTACT")
+            else:
+                QMessageBox.warning(self, "Chain Integrity",
+                    f"TAMPERING DETECTED!\nLast valid entry: {last_ok}\nError: {error}")
+                self.statusBar().showMessage("WARNING: Audit chain tampering detected!")
+        except Exception as e:
+            QMessageBox.critical(self, "Verification Error", str(e))
 
     def format_file_size(self, size_in_bytes):
         """Format file size in human-readable format."""
